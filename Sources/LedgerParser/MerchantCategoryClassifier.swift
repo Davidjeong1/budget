@@ -20,15 +20,15 @@ public enum MerchantCategoryClassifier {
         ]),
         (.shopping, [
             "쿠팡", "coupang", "11번가", "지마켓", "gmarket", "옥션", "네이버쇼핑", "무신사",
-            "올리브영", "다이소", "이마트", "홈플러스", "롯데마트", "쓱", "ssg", "마켓컬리",
-            "cu", "gs25", "세븐일레븐", "이마트24", "편의점",
+            "올리브영", "다이소", "이마트", "홈플러스", "롯데마트", "ssg", "마켓컬리",
+            "gs25", "세븐일레븐", "이마트24", "편의점",
         ]),
         (.housing, [
-            "kt", "skt", "lg유플러스", "lgu+", "통신", "한국전력", "도시가스", "수도",
+            "skt", "lg유플러스", "lgu+", "통신", "한국전력", "도시가스",
             "관리비", "월세", "임대료", "인터넷",
         ]),
         (.health, [
-            "병원", "의원", "약국", "치과", "한의원", "clinic", "헬스", "피트니스", "짐",
+            "병원", "의원", "약국", "치과", "한의원", "clinic", "헬스", "피트니스",
         ]),
         (.culture, [
             "cgv", "메가박스", "롯데시네마", "영화", "넷플릭스", "netflix", "왓챠", "웨이브",
@@ -39,12 +39,31 @@ public enum MerchantCategoryClassifier {
         ]),
     ]
 
+    /// Matched against whole words instead of as substrings. These are short enough to collide
+    /// with unrelated names — "CU" inside "CUCKOO", "KT" inside "KTX" — so a substring match would
+    /// misfile them.
+    private static let wordKeywords: [(Category, [String])] = [
+        (.shopping, ["cu", "쓱"]),
+        (.housing, ["kt", "수도"]),
+        (.health, ["짐"]),
+    ]
+
     public static func classify(_ merchant: String?) -> Category {
         guard let merchant, !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .etc
         }
         let needle = merchant.lowercased()
-        for (category, words) in keywords where words.contains(where: { needle.contains($0.lowercased()) }) {
+
+        for (category, words) in keywords where words.contains(where: { needle.contains($0) }) {
+            return category
+        }
+
+        let tokens = Set(
+            needle
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+        )
+        for (category, words) in wordKeywords where words.contains(where: { tokens.contains($0) }) {
             return category
         }
         return .etc

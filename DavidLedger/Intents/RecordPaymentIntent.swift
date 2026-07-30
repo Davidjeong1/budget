@@ -29,14 +29,11 @@ struct RecordPaymentIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        let container = try LedgerStore.makeSharedContainer()
-        let context = container.mainContext
-
         do {
             let transaction = try LedgerStore.record(
                 messageText: messageText,
                 source: .shortcutAutomation,
-                in: context
+                in: LedgerStore.shared.mainContext
             )
             let amount = CurrencyFormatter.string(from: abs(transaction.amount))
             return .result(value: "\(transaction.merchant) \(amount) 기록됨")
@@ -46,6 +43,10 @@ struct RecordPaymentIntent: AppIntent {
             return .result(value: "결제 문자가 아니어서 기록하지 않았습니다")
         } catch LedgerStoreError.duplicate {
             return .result(value: "이미 기록된 결제입니다")
+        } catch {
+            // An automation that throws shows the user a failure banner on an ordinary incoming
+            // message, so even an unexpected failure returns a value instead.
+            return .result(value: "기록에 실패했습니다: \(error.localizedDescription)")
         }
     }
 }

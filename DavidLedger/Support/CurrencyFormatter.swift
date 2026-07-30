@@ -16,7 +16,7 @@ enum CurrencyFormatter {
     /// Renders a signed amount the way a ledger reads it: money out is negative, money back in
     /// (income, or a cancelled approval) is positive.
     static func signedString(from amount: Int) -> String {
-        amount >= 0 ? "+\(string(from: amount))" : string(from: amount)
+        amount > 0 ? "+\(string(from: amount))" : string(from: amount)
     }
 }
 

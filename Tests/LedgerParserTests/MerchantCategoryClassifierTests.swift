@@ -29,6 +29,15 @@ final class MerchantCategoryClassifierTests: XCTestCase {
         XCTAssertEqual(MerchantCategoryClassifier.classify("CGV 왕십리"), .culture)
     }
 
+    /// Short ASCII keywords are matched as whole words, so they must not swallow longer names that
+    /// merely contain them.
+    func testShortKeywordsMatchWholeWordsOnly() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("CU 역삼점"), .shopping)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("CUCKOO 전자"), .etc)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("KT 통신요금"), .housing)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("KTX 서울역"), .transport)
+    }
+
     func testUnknownAndBlankFallBackToEtc() {
         XCTAssertEqual(MerchantCategoryClassifier.classify("무슨무슨상사"), .etc)
         XCTAssertEqual(MerchantCategoryClassifier.classify(nil), .etc)

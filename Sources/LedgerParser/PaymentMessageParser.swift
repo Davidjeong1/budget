@@ -30,7 +30,14 @@ public enum PaymentMessageParser {
         "KB국민카드", "국민카드", "신한카드", "삼성카드", "우리카드", "하나카드",
         "롯데카드", "현대카드", "NH농협카드", "농협카드", "비씨카드", "BC카드",
         "씨티카드", "카카오페이", "네이버페이", "토스", "페이코",
-    ].sorted { $0.count > $1.count }
+    ]
+    // Longest first so "KB국민카드" wins over "국민카드". The name breaks ties, because Swift's sort
+    // is not guaranteed stable and several issuers are the same length.
+    .sorted { $0.count != $1.count ? $0.count > $1.count : $0 < $1 }
+
+    /// Stripped as substrings, longest first, because they are routinely written with no space
+    /// between them and the issuer or the merchant.
+    private static let gluedSuffixes = ["승인취소", "결제취소", "결제완료", "체크승인", "승인", "결제", "취소", "완료"]
 
     private static let merchantStopTokens: Set<String> = [
         "카드", "앱카드", "승인", "정상승인", "체크승인", "정상", "체크카드", "해외", "국내", "일시불",
@@ -154,12 +161,23 @@ public enum PaymentMessageParser {
 
     private static func cleanMerchantCandidate(_ raw: String) -> String? {
         var s = raw
-        for pattern in [bracketPattern, cardLast4Pattern, dateTimePattern, amountPattern, installmentPattern] {
-            s = regex(pattern).stringByReplacingMatches(
+        // Reuses the cached regexes: this runs once per candidate line, so recompiling five
+        // patterns each time would be the most expensive part of parsing a message.
+        for expression in [bracketRegex, cardLast4Regex, dateTimeRegex, amountRegex, installmentRegex] {
+            s = expression.stringByReplacingMatches(
                 in: s,
                 range: NSRange(location: 0, length: (s as NSString).length),
                 withTemplate: " "
             )
+        }
+
+        // Card companies often glue the issuer to the keyword ("우리카드승인"), which would survive
+        // whole-token filtering and end up in the merchant name.
+        for issuer in knownIssuers {
+            s = s.replacingOccurrences(of: issuer, with: " ", options: .caseInsensitive)
+        }
+        for keyword in gluedSuffixes {
+            s = s.replacingOccurrences(of: keyword, with: " ")
         }
 
         let tokens = s

@@ -23,9 +23,12 @@ struct HomeView: View {
         transactions.filter { !$0.isExpense }.reduce(0) { $0 + $1.amount }
     }
 
+    /// Nets cancellations into their category so the bars add up to `expenseTotal`. A category
+    /// that ends up at or below zero is dropped rather than drawn as an empty bar.
     private var categoryTotals: [(category: Category, total: Int)] {
-        Dictionary(grouping: transactions.filter { $0.isExpense && $0.amount > 0 }, by: \.category)
+        Dictionary(grouping: transactions.filter(\.isExpense), by: \.category)
             .map { (category: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }) }
+            .filter { $0.total > 0 }
             .sorted { $0.total > $1.total }
     }
 
@@ -108,7 +111,8 @@ private struct MonthSummaryCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(CurrencyFormatter.string(from: expenseTotal))
                     .font(.largeTitle.bold())
-                Text("이번 달 지출").font(.subheadline).foregroundStyle(.secondary)
+                // Not "이번 달" — the card pages through months.
+                Text("지출").font(.subheadline).foregroundStyle(.secondary)
             }
 
             if incomeTotal > 0 {

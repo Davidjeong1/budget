@@ -98,7 +98,7 @@ Xcode에서 열었다면 앱 타깃과 공유 확장 모두에 **본인의 Apple
 
 ## 검증 상태
 
-`Sources/LedgerParser`와 `Tests/LedgerParserTests`의 테스트 12건은 **아직 실행되지 않았습니다.**
+`Sources/LedgerParser`와 `Tests/LedgerParserTests`의 테스트 18건은 **아직 실행되지 않았습니다.**
 작성 환경(Linux 컨테이너)의 egress 정책이 `download.swift.org`를 차단해 Swift 툴체인을 설치할 수 없었고,
 iOS 앱 빌드에는 macOS와 Xcode가 필요합니다. macOS에서 `swift test`를 먼저 돌려 보시고,
 실패하는 카드사 문자가 있으면 원문을 테스트 케이스로 추가하면 됩니다.

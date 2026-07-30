@@ -97,6 +97,18 @@ final class PaymentMessageParserTests: XCTestCase {
         XCTAssertEqual(result.amount, 12_000)
     }
 
+    /// The issuer is glued to the keyword and there is no date/time, so merchant extraction has to
+    /// fall through to the line scan and still not leak "우리카드승인" into the merchant name.
+    func testIssuerGluedToKeywordIsNotPartOfMerchant() throws {
+        let text = "우리카드승인 33,000원 스타벅스코리아"
+
+        let result = try XCTUnwrap(PaymentMessageParser.parse(text))
+
+        XCTAssertEqual(result.amount, 33_000)
+        XCTAssertEqual(result.issuer, "우리카드")
+        XCTAssertEqual(result.merchant, "스타벅스코리아")
+    }
+
     func testUnrelatedChatMessageIsNotParsed() {
         XCTAssertNil(PaymentMessageParser.parse("오늘 저녁 뭐 먹을까요? 스타벅스에서 이따 봐요"))
     }

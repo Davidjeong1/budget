@@ -12,10 +12,30 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if LedgerStore.isUsingFallbackStore {
+                    Section {
+                        Label(
+                            """
+                            App Group을 사용할 수 없어 앱 내부 저장소를 쓰고 있습니다. \
+                            공유 시트로 기록한 내역이 앱에 보이지 않습니다. \
+                            Xcode의 Signing & Capabilities에서 두 타깃 모두에 \
+                            App Group을 추가해 주세요.
+                            """,
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                    }
+                }
+
                 Section {
-                    Text("iOS는 앱이 문자나 다른 앱의 알림을 직접 읽는 것을 허용하지 않습니다. "
-                         + "대신 **단축어 자동화**를 한 번 만들어두면, 문자가 올 때마다 그 내용이 "
-                         + "이 앱으로 전달되어 자동으로 기록됩니다.")
+                    // One string literal, so SwiftUI resolves the LocalizedStringKey initialiser
+                    // and renders the markdown. String concatenation would print the asterisks.
+                    Text("""
+                    iOS는 앱이 문자나 다른 앱의 알림을 직접 읽는 것을 허용하지 않습니다. \
+                    대신 **단축어 자동화**를 한 번 만들어두면, 문자가 올 때마다 그 내용이 \
+                    이 앱으로 전달되어 자동으로 기록됩니다.
+                    """)
                     .font(.footnote)
                 } header: {
                     Text("자동 기록은 이렇게 동작합니다")
@@ -38,8 +58,10 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("카카오톡으로 오는 승인 알림톡은 iOS에서 어떤 앱도 읽을 수 없습니다. "
-                         + "카카오톡 결제 알림은 알림을 길게 눌러 공유하거나 직접 입력해 주세요.")
+                    Text("""
+                    카카오톡으로 오는 승인 알림톡은 iOS에서 어떤 앱도 읽을 수 없습니다. \
+                    카카오톡 결제 알림은 알림을 길게 눌러 공유하거나 직접 입력해 주세요.
+                    """)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 } header: {

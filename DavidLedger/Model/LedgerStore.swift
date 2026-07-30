@@ -14,6 +14,33 @@ enum LedgerStore {
     /// Shared by the app and its extensions. Must match the App Group capability on every target.
     static let appGroupID = "group.com.davidjeong.ledger"
 
+    /// One container per process, shared by the app, the App Intent and the share extension.
+    ///
+    /// This has to be a single instance: with `openAppWhenRun = false` the intent runs inside the
+    /// app's own process, and a second container over the same file would not be merged into the
+    /// first — a payment recorded by the automation would simply not appear in the open app.
+    static var shared: ModelContainer { resolved.container }
+
+    /// True when the App Group container was unavailable and a local store is being used instead,
+    /// which means the share extension is writing somewhere the app cannot see. Surfaced in
+    /// Settings rather than crashing, because the usual cause is a provisioning profile without
+    /// the App Group entitlement.
+    static var isUsingFallbackStore: Bool { resolved.isFallback }
+
+    /// Resolved exactly once — `static let` is lazy and runs its initialiser a single time.
+    private static let resolved: (container: ModelContainer, isFallback: Bool) = makeContainer()
+
+    private static func makeContainer() -> (container: ModelContainer, isFallback: Bool) {
+        if let shared = try? makeSharedContainer() {
+            return (shared, false)
+        }
+        do {
+            return (try ModelContainer(for: Transaction.self), true)
+        } catch {
+            fatalError("가계부 저장소를 열지 못했습니다: \(error)")
+        }
+    }
+
     static func makeSharedContainer() throws -> ModelContainer {
         let configuration = ModelConfiguration(
             groupContainer: .identifier(appGroupID),

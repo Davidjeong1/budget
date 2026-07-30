@@ -7,16 +7,8 @@ struct DavidLedgerApp: App {
         WindowGroup {
             HomeView()
         }
-        .modelContainer(sharedContainer)
+        // The same container the App Intent and the share extension use, so a payment recorded by
+        // the Shortcuts automation shows up in the open app immediately.
+        .modelContainer(LedgerStore.shared)
     }
-
-    /// Built once and shared with the extensions through the App Group. If this fails the app has
-    /// no store at all, so there is nothing sensible to fall back to.
-    private let sharedContainer: ModelContainer = {
-        do {
-            return try LedgerStore.makeSharedContainer()
-        } catch {
-            fatalError("가계부 저장소를 열지 못했습니다: \(error)")
-        }
-    }()
 }

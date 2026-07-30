@@ -24,11 +24,10 @@ final class ShareViewController: UIViewController {
         // UIViewController is @MainActor, so this whole method already runs on the main actor and
         // can touch mainContext directly.
         do {
-            let container = try LedgerStore.makeSharedContainer()
             let transaction = try LedgerStore.record(
                 messageText: text,
                 source: .shareSheet,
-                in: container.mainContext
+                in: LedgerStore.shared.mainContext
             )
             let amount = CurrencyFormatter.string(from: abs(transaction.amount))
             present(state: .success("\(transaction.merchant)\n\(amount)"))

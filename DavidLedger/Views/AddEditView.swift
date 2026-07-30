@@ -16,6 +16,9 @@ struct AddEditView: View {
     @State private var isExpense = true
     @State private var occurredAt = Date.now
     @State private var didLoad = false
+    /// Copied out of the model on appear. Reading it off `transaction` during body would crash if
+    /// the body re-evaluates between deleting the model and the sheet tearing down.
+    @State private var rawMessage: String?
 
     private var amount: Int? {
         let digits = amountText.filter(\.isNumber)
@@ -63,9 +66,9 @@ struct AddEditView: View {
                     TextField("메모", text: $memo, axis: .vertical)
                 }
 
-                if let raw = transaction?.rawMessage {
+                if let rawMessage {
                     Section("자동 인식된 원본 메시지") {
-                        Text(raw).font(.caption).foregroundStyle(.secondary)
+                        Text(rawMessage).font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
@@ -97,6 +100,7 @@ struct AddEditView: View {
         category = transaction.category
         isExpense = transaction.isExpense
         occurredAt = transaction.occurredAt
+        rawMessage = transaction.rawMessage
         didLoad = true
     }
 
@@ -127,8 +131,10 @@ struct AddEditView: View {
         dismiss()
     }
 
+    /// Dismisses before deleting, so no further body evaluation can touch the deleted model.
     private func deleteAndDismiss() {
-        if let transaction { context.delete(transaction) }
+        guard let transaction else { return dismiss() }
         dismiss()
+        DispatchQueue.main.async { context.delete(transaction) }
     }
 }

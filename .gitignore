@@ -1,12 +1,13 @@
-*.iml
-.gradle/
-/local.properties
-/.idea/
 .DS_Store
-build/
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-*.apk
-*.aab
+
+# Generated from project.yml by XcodeGen
+*.xcodeproj
+*.xcworkspace
+
+# Swift / Xcode build output
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+Package.resolved

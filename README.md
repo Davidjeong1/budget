@@ -1,21 +1,33 @@
-# 다비드 가계부 (David Ledger)
+# 다비드 가계부 (David Ledger) — iOS
 
-문자와 카카오톡으로 오는 **카드 승인 메시지를 자동으로 인식해 가계부에 기록**하는 안드로이드 앱입니다.
-결제할 때마다 직접 입력할 필요 없이, 승인 메시지가 도착하면 금액·사용처·분류가 자동으로 채워집니다.
+카드 승인 문자를 읽어 **금액·사용처·분류를 자동으로 가계부에 기록**하는 iOS 앱입니다.
+
+## 먼저 알아야 할 iOS 제약
+
+iOS는 앱이 문자(SMS)나 다른 앱의 알림을 직접 읽는 것을 **플랫폼 차원에서 금지**합니다.
+안드로이드의 `RECEIVE_SMS`나 `NotificationListenerService`에 해당하는 API가 존재하지 않습니다.
+(`ILMessageFilterExtension`은 모르는 번호의 스팸 차단 전용이라 내용을 앱에 저장할 수 없습니다.)
+
+그래서 이 앱은 **단축어(Shortcuts) 자동화**를 통해 자동 기록을 구현합니다.
+사용자가 자동화를 한 번 만들어두면, 문자가 도착할 때마다 iOS가 그 내용을 앱의 App Intent로 넘겨주고
+앱이 파싱해서 저장합니다.
+
+| | 자동 기록 |
+| --- | --- |
+| 문자(SMS/iMessage) 카드 승인 | 가능 — 단축어 자동화 |
+| 카카오톡 승인 알림톡 | **불가능** — 공유 시트나 직접 입력으로 기록 |
 
 ## 주요 기능
 
-- **결제 문자 자동 인식** — 카드사 승인 SMS를 읽어 금액, 가맹점, 카드 뒷 4자리, 승인 시각, 할부 개월을 추출합니다.
-- **카카오톡 알림톡 자동 인식** — 카드사 공식 채널이 카카오톡으로 보내는 승인 알림톡도 같은 방식으로 인식합니다.
-- **중복 방지** — 같은 결제가 문자와 카카오톡으로 동시에 오더라도 한 건만 기록됩니다.
-- **자동 분류** — 가맹점 이름을 보고 식비 / 카페 / 교통 / 쇼핑 등으로 자동 분류하며, 사용자가 언제든 수정할 수 있습니다.
-- **결제 취소 반영** — 승인 취소 메시지를 인식해 지출에서 제외합니다.
-- **월별 가계부** — 월 단위 지출·수입 합계와 분류별 지출 비중을 보여줍니다.
-- **직접 입력** — 현금 결제 등 메시지가 오지 않는 내역은 손으로 추가·수정·삭제할 수 있습니다.
+- **결제 문자 자동 기록** — 단축어 자동화가 넘겨준 문자에서 금액, 가맹점, 카드 뒷 4자리, 승인 시각, 할부 개월을 추출합니다.
+- **공유 시트 기록** — 문자나 알림을 길게 눌러 `공유 → 다비드 가계부`로 보내면 그 자리에서 기록됩니다.
+- **중복 방지** — 같은 승인이 두 번 들어와도 한 건만 저장됩니다.
+- **자동 분류** — 가맹점 이름으로 식비/카페/교통/쇼핑 등을 추정하며, 언제든 수정할 수 있습니다.
+- **결제 취소 반영** — 승인 취소를 음수 지출로 기록해 원 결제와 상계합니다.
+- **인식 테스트** — 설정 화면에 실제 카드 문자를 붙여넣어 저장 없이 인식 결과만 확인할 수 있습니다.
+- **월별 가계부** — 월 단위 지출·수입 합계와 분류별 지출 비중.
 
 ## 지원하는 메시지 형식
-
-국내 주요 카드사·간편결제의 승인 메시지 형식을 지원합니다.
 
 | 발신 | 예시 |
 | --- | --- |
@@ -28,62 +40,76 @@
 
 `누적`, `잔액`, `한도`, `포인트` 뒤에 나오는 금액은 결제 금액이 아니므로 무시합니다.
 
-## 사용 방법
+## 자동화 설정 방법
 
-1. 앱을 설치하고 실행합니다.
-2. 우측 상단 **설정**으로 이동합니다.
-3. **문자 읽기 권한**을 허용합니다. (카드 승인 문자 인식용)
-4. **알림 접근 권한**에서 `설정 열기`를 눌러 시스템 설정에서 다비드 가계부를 켭니다. (카카오톡 알림톡 인식용)
-5. 이후 결제하면 승인 메시지가 도착하는 즉시 가계부에 자동으로 기록됩니다.
+앱 설치 후 **설정** 화면의 안내를 따르거나, 아래대로 진행하세요.
 
-자동 인식을 잠시 끄고 싶다면 설정의 **결제 금액 자동 반영** 스위치를 끄면 됩니다.
+1. **단축어** 앱 → **자동화** 탭
+2. **새로운 자동화** → **메시지**
+3. **메시지에 다음이 포함**에 `승인` 입력 (보낸 사람은 비워 둠)
+4. **즉시 실행** 켜기, **실행 시 알림** 끄기
+5. 동작으로 **결제 문자 가계부에 기록** 추가
+6. `메시지 내용` 항목에 **메시지 내용** 변수를 넣고 저장
 
-## 개인정보 처리
-
-읽어들인 문자와 알림은 **기기 안에서만** 분석되고 저장됩니다. 서버로 전송하지 않으며 네트워크 권한도 요청하지 않습니다.
-데이터는 앱 내부 저장소의 Room 데이터베이스(`david-ledger.db`)에만 저장되고, 앱을 삭제하면 함께 지워집니다.
+이후 승인 문자가 오면 자동으로 기록됩니다. 결제 문자가 아닌 메시지가 걸려도 파서가 걸러내므로 그냥 무시됩니다.
 
 ## 프로젝트 구조
 
 ```
-david-ledger/
-├── parser/                     순수 Kotlin/JVM 모듈 (안드로이드 의존성 없음)
-│   ├── PaymentMessageParser    승인 메시지 → 금액·가맹점·카드·시각 추출
+budget/
+├── Package.swift                 LedgerParser 스위프트 패키지
+├── Sources/LedgerParser/         순수 로직 (UIKit/SwiftUI 의존성 없음)
+│   ├── PaymentMessageParser      승인 문자 → 금액·가맹점·카드·시각 추출
 │   ├── MerchantCategoryClassifier  가맹점 이름 → 분류 추정
-│   ├── Category                가계부 분류 항목
-│   └── ParsedPayment           추출 결과 모델
-└── app/                        안드로이드 앱 모듈
-    ├── data/
-    │   ├── local/              Room 엔티티·DAO·DB
-    │   ├── repository/         LedgerRepository (중복 방지 키 생성 포함)
-    │   ├── AutoCaptureCoordinator  두 수신 경로의 공통 진입점
-    │   └── AutoCaptureSettings     자동 반영 on/off 설정
-    ├── receiver/SmsReceiver                        SMS 수신
-    ├── notification/PaymentNotificationListenerService  카카오톡 알림 수신
-    ├── notification/CaptureNotifier                자동 반영 알림 표시
-    └── ui/                     Jetpack Compose 화면 (홈 / 추가·수정 / 설정)
+│   ├── Category                  가계부 분류 항목
+│   └── ParsedPayment             추출 결과 모델
+├── Tests/LedgerParserTests/      파서 단위 테스트
+├── DavidLedger/                  앱 타깃
+│   ├── Model/Transaction         SwiftData 모델
+│   ├── Model/LedgerStore         파싱 → 저장, 중복 방지 키 생성
+│   ├── Intents/RecordPaymentIntent  단축어 자동화가 호출하는 App Intent
+│   └── Views/                    Home / AddEdit / Settings
+├── ShareExtension/               공유 시트로 받은 텍스트 기록
+└── project.yml                   XcodeGen 스펙
 ```
 
-메시지 인식 로직을 안드로이드 의존성이 없는 `:parser` 모듈로 분리했기 때문에, 에뮬레이터 없이 JVM 단위 테스트만으로 검증할 수 있습니다.
+인식 로직을 UI 의존성이 없는 `LedgerParser` 패키지로 분리했기 때문에 시뮬레이터 없이 `swift test`로 검증할 수 있습니다.
+앱과 공유 확장은 App Group(`group.com.davidjeong.ledger`)으로 같은 SwiftData 저장소를 씁니다.
 
 ## 빌드
 
+`.xcodeproj`는 `project.yml`에서 생성하므로 저장소에 커밋하지 않습니다.
+
 ```bash
-# 메시지 인식 로직 단위 테스트
-./gradlew :parser:test
-
-# 디버그 APK 빌드 (Android SDK 필요)
-./gradlew :app:assembleDebug
+brew install xcodegen
+xcodegen generate
+open DavidLedger.xcodeproj
 ```
 
-`:app` 모듈을 빌드하려면 Android SDK가 설치되어 있어야 하며, `local.properties`에 SDK 경로가 있어야 합니다.
+파서 로직만 검증하려면:
 
-```properties
-sdk.dir=/path/to/Android/sdk
+```bash
+swift test
 ```
+
+Xcode에서 열었다면 앱 타깃과 공유 확장 모두에 **본인의 Apple Developer 팀**과
+**App Group `group.com.davidjeong.ledger`** 를 설정해야 합니다.
+번들 ID를 바꾸는 경우 `LedgerStore.appGroupID`와 두 `.entitlements` 파일의 값을 함께 맞춰 주세요.
+
+## 검증 상태
+
+`Sources/LedgerParser`와 `Tests/LedgerParserTests`의 테스트 12건은 **아직 실행되지 않았습니다.**
+작성 환경(Linux 컨테이너)의 egress 정책이 `download.swift.org`를 차단해 Swift 툴체인을 설치할 수 없었고,
+iOS 앱 빌드에는 macOS와 Xcode가 필요합니다. macOS에서 `swift test`를 먼저 돌려 보시고,
+실패하는 카드사 문자가 있으면 원문을 테스트 케이스로 추가하면 됩니다.
+
+## 개인정보 처리
+
+읽어들인 메시지는 **기기 안에서만** 분석·저장됩니다. 네트워크로 전송하지 않으며 네트워크 권한도 요청하지 않습니다.
+데이터는 App Group 컨테이너의 SwiftData 저장소에만 있고, 앱을 삭제하면 함께 지워집니다.
 
 ## 새로운 카드사 형식 추가하기
 
-`parser/src/main/kotlin/.../PaymentMessageParser.kt`의 `KNOWN_ISSUERS`에 카드사 이름을 추가하고,
-`parser/src/test/kotlin/.../PaymentMessageParserTest.kt`에 실제 메시지 예시로 테스트를 추가하면 됩니다.
-가맹점 자동 분류 키워드는 `MerchantCategoryClassifier.KEYWORDS`에서 관리합니다.
+`Sources/LedgerParser/PaymentMessageParser.swift`의 `knownIssuers`에 카드사 이름을 추가하고,
+`Tests/LedgerParserTests/PaymentMessageParserTests.swift`에 실제 문자 예시로 테스트를 추가하세요.
+가맹점 자동 분류 키워드는 `MerchantCategoryClassifier.keywords`에서 관리합니다.

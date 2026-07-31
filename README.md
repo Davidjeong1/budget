@@ -69,6 +69,9 @@ open DavidLedger.xcodeproj
 
 Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 됩니다.
 
+Xcode Cloud도 같은 이유로 클론 직후에는 프로젝트가 없으므로, `ci_scripts/ci_post_clone.sh`가
+`xcodegen generate`를 대신 실행합니다.
+
 도메인 로직만 검증하려면:
 
 ```bash

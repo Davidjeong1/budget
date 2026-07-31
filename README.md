@@ -77,6 +77,6 @@ swift test
 
 ## 검증 상태
 
-`Tests/LedgerCoreTests`의 테스트 11건은 **아직 실행되지 않았습니다.**
+`Tests/LedgerCoreTests`의 테스트 10건(단언 24개)은 **아직 실행되지 않았습니다.**
 작성 환경(Linux 컨테이너)의 egress 정책이 `download.swift.org`를 차단해 Swift 툴체인을 설치할 수 없었고,
 iOS 앱 빌드에는 macOS와 Xcode가 필요합니다. macOS에서 `swift test`부터 돌려 보시기 바랍니다.

@@ -69,10 +69,16 @@ struct LedgerCSV: Transferable, Identifiable {
 struct ShareSheet: UIViewControllerRepresentable {
     let csv: LedgerCSV
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
+    // The `context` label is required by UIViewControllerRepresentable, so the parameters are
+    // named `_` rather than dropped — renaming the label would break the conformance.
+    func makeUIViewController(context _: Context) -> UIActivityViewController {
         let item: Any = (try? csv.writeToTemporaryFile()) ?? csv.text
         return UIActivityViewController(activityItems: [item], applicationActivities: nil)
     }
 
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_: UIActivityViewController, context _: Context) {
+        // Intentionally empty. The share sheet is configured once in makeUIViewController and has
+        // no state to refresh: the CSV is snapshotted when the user taps export, and a new sheet
+        // is built from scratch on each presentation.
+    }
 }

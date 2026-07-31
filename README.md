@@ -77,6 +77,20 @@ swift test
 
 ## 검증 상태
 
-`Tests/LedgerCoreTests`의 테스트 10건(단언 24개)은 **아직 실행되지 않았습니다.**
-작성 환경(Linux 컨테이너)의 egress 정책이 `download.swift.org`를 차단해 Swift 툴체인을 설치할 수 없었고,
-iOS 앱 빌드에는 macOS와 Xcode가 필요합니다. macOS에서 `swift test`부터 돌려 보시기 바랍니다.
+`Tests/LedgerCoreTests`의 테스트 10건(단언 24개)은 macOS에서 **전부 통과했습니다.**
+
+```
+Executed 10 tests, with 0 failures (0 unexpected) in 0.002 seconds
+```
+
+`swift test`는 XCTest를 포함하지 않는 Command Line Tools 툴체인에서는 `unable to resolve module
+dependency: 'XCTest'`로 실패합니다. `xcode-select -p`가 `/Library/Developer/CommandLineTools`를
+가리키면 Xcode 쪽으로 바꿔 주세요:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+**iOS 앱 자체의 빌드와 실행은 아직 검증되지 않았습니다.** 위 테스트가 다루는 범위는 UI 의존성이 없는
+`Sources/LedgerCore`(분류 추정과 `Category`)뿐이고, `DavidLedger/`의 SwiftUI 화면과 SwiftData 모델은
+포함되지 않습니다.

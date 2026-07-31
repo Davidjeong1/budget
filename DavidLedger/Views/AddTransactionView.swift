@@ -14,12 +14,15 @@ struct AddTransactionView: View {
 
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
     @Query private var budgets: [Budget]
+    @Query private var customCategories: [CustomCategory]
 
     @State private var amountDigits = ""
     @State private var merchant = ""
     @State private var memo = ""
     @State private var isExpense = true
-    @State private var category: Category = .food
+    /// Held as the stored key rather than a resolved category, so the selection survives the user
+    /// renaming or restyling that category while this sheet is open.
+    @State private var categoryRaw = Category.food.rawValue
     @State private var occurredAt = Date.now
     /// Set once the user picks a chip, so the merchant-based suggestion stops overriding them.
     @State private var didChooseCategory = false
@@ -33,8 +36,24 @@ struct AddTransactionView: View {
         amount > 0 && !merchant.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    private var categories: [Category] {
-        isExpense ? Category.expenseCases : Category.incomeCases
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
+
+    private var category: LedgerCategory { catalog.category(forRaw: categoryRaw) }
+
+    /// What this mode offers. An archived category is not among them, which is what keeps it out
+    /// of new entries.
+    private var offeredCategories: [LedgerCategory] {
+        isExpense ? catalog.expenseChoices : catalog.incomeChoices
+    }
+
+    /// What the grid draws. While editing a row filed under a since-archived category, that chip is
+    /// appended so the selection stays visible — otherwise saving would silently refile the row.
+    private var categories: [LedgerCategory] {
+        var options = offeredCategories
+        if !options.contains(where: { $0.raw == categoryRaw }) {
+            options.append(category)
+        }
+        return options
     }
 
     var body: some View {
@@ -58,15 +77,18 @@ struct AddTransactionView: View {
         }
         .onAppear(perform: loadIfNeeded)
         .onChange(of: isExpense) { _, expense in
-            // The two modes offer different chips, so keep the selection inside the visible set.
-            if !categories.contains(category) {
-                category = expense ? .food : .salary
+            // The two modes offer different chips, so keep the selection inside the offered set —
+            // not `categories`, which always contains the current selection by construction.
+            if !offeredCategories.contains(where: { $0.raw == categoryRaw }) {
+                categoryRaw = expense ? Category.food.rawValue : Category.salary.rawValue
             }
         }
         .onChange(of: merchant) { _, name in
             guard !didChooseCategory, isExpense else { return }
+            // Only ever suggests a built-in: the classifier's keyword table has no way to know
+            // about categories the user invented.
             let suggestion = MerchantCategoryClassifier.classify(name)
-            if suggestion != .etc { category = suggestion }
+            if suggestion != .etc { categoryRaw = suggestion.rawValue }
         }
     }
 
@@ -174,10 +196,10 @@ struct AddTransactionView: View {
             Text("카테고리").font(.sectionTitle).foregroundStyle(Palette.textPrimary)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                ForEach(categories, id: \.self) { option in
-                    let selected = option == category
+                ForEach(categories) { option in
+                    let selected = option.raw == categoryRaw
                     Button {
-                        category = option
+                        categoryRaw = option.raw
                         didChooseCategory = true
                     } label: {
                         VStack(spacing: 6) {
@@ -258,7 +280,7 @@ struct AddTransactionView: View {
         merchant = editing.merchant
         memo = editing.memo
         isExpense = editing.isExpense
-        category = editing.category
+        categoryRaw = editing.categoryRaw
         occurredAt = editing.occurredAt
         didChooseCategory = true
     }
@@ -272,7 +294,7 @@ struct AddTransactionView: View {
             editing.amount = amount
             editing.isExpense = isExpense
             editing.merchant = trimmedMerchant
-            editing.category = category
+            editing.categoryRaw = categoryRaw
             editing.memo = trimmedMemo
             editing.occurredAt = occurredAt
             notifyIfBudgetThresholdCrossed()
@@ -283,7 +305,7 @@ struct AddTransactionView: View {
                 amount: amount,
                 isExpense: isExpense,
                 merchant: trimmedMerchant,
-                category: category,
+                categoryRaw: categoryRaw,
                 memo: trimmedMemo,
                 occurredAt: occurredAt
             )

@@ -9,6 +9,9 @@ struct HomeView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
     @Query private var budgets: [Budget]
+    @Query private var customCategories: [CustomCategory]
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var digest: MonthlyDigest {
         MonthlyDigest(month: month, allTransactions: allTransactions)
@@ -146,7 +149,10 @@ struct HomeView: View {
             } else {
                 VStack(spacing: Metrics.rowSpacing) {
                     ForEach(digest.recent) { transaction in
-                        CompactTransactionRow(transaction: transaction)
+                        CompactTransactionRow(
+                            transaction: transaction,
+                            category: catalog.category(forRaw: transaction.categoryRaw)
+                        )
                     }
                 }
             }

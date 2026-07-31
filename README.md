@@ -11,13 +11,14 @@
 | 추가 | 큰 금액 입력, 지출·수입 전환, 카테고리 선택, 날짜, 메모 |
 | 통계 | 카테고리별 도넛 차트(상위 4개 + 기타), 가장 많이 쓴 카테고리 3개 |
 | 예산 | 월 총 목표 예산과 카테고리별 목표, 사용률 막대 |
-| 설정 | 알림·생체 인증, CSV 내보내기, 버전 정보 |
+| 설정 | 알림·생체 인증, 카테고리 관리, CSV 내보내기, 버전 정보 |
 
 모든 화면은 상단의 월 이동 컨트롤을 공유하며, 같은 달을 함께 바라봅니다.
 
 ## 기능
 
 - **수동 입력** — 사용처를 입력하면 카테고리를 추정해 미리 선택해 줍니다(`MerchantCategoryClassifier`). 직접 고르면 추정이 더 이상 개입하지 않습니다.
+- **사용자 카테고리** — 기본 8개 외에 이름·아이콘·색을 직접 정한 카테고리를 추가할 수 있습니다. 삭제는 보관 방식이라 이미 기록된 내역은 원래 이름과 색 그대로 남고, 새 내역에서만 선택 목록에서 빠집니다.
 - **월별 예산** — 총 목표와 카테고리별 목표를 달마다 따로 저장합니다. 90%를 넘긴 카테고리는 빨간색으로 표시됩니다.
 - **매일 저녁 알림** — 21시에 기록을 상기시키는 로컬 알림.
 - **예산 초과 알림** — 저장 시점에 이번 달 예산의 90%를 넘으면 한 번 알립니다.
@@ -40,8 +41,8 @@ budget/
 │   └── MerchantCategoryClassifier  사용처 이름 → 분류 추정
 ├── Tests/LedgerCoreTests/     단위 테스트
 ├── DavidLedger/
-│   ├── Model/                 Transaction, Budget (SwiftData), MonthRange
-│   ├── Support/               DesignSystem, MonthlyDigest, 알림, CSV, 설정
+│   ├── Model/                 Transaction, Budget, CustomCategory (SwiftData), MonthRange
+│   ├── Support/               DesignSystem, CategoryCatalog, MonthlyDigest, 알림, CSV, 설정
 │   └── Views/                 6개 화면 + 공용 컴포넌트 + 잠금 화면
 └── project.yml                XcodeGen 스펙
 ```
@@ -94,6 +95,6 @@ dependency: 'XCTest'`로 실패합니다. `xcode-select -p`가 `/Library/Develop
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ```
 
-**iOS 앱 자체의 빌드와 실행은 아직 검증되지 않았습니다.** 위 테스트가 다루는 범위는 UI 의존성이 없는
-`Sources/LedgerCore`(분류 추정과 `Category`)뿐이고, `DavidLedger/`의 SwiftUI 화면과 SwiftData 모델은
-포함되지 않습니다.
+위 테스트가 다루는 범위는 UI 의존성이 없는 `Sources/LedgerCore`(분류 추정과 `Category`)뿐입니다.
+**`DavidLedger/`의 SwiftUI 화면과 SwiftData 모델을 검증하는 자동화된 테스트는 없으므로**, 화면 동작은
+시뮬레이터나 실기기에서 직접 확인해야 합니다.

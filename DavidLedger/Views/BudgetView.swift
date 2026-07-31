@@ -8,22 +8,25 @@ struct BudgetView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
     @Query private var budgets: [Budget]
+    @Query private var customCategories: [CustomCategory]
 
     /// One sheet driver rather than two stacked `.sheet` modifiers, which SwiftUI has historically
     /// handled unreliably.
     private enum BudgetSheet: Identifiable {
         case total
-        case category(Category)
+        case category(String)
 
         var id: String {
             switch self {
             case .total: "total"
-            case .category(let category): category.rawValue
+            case .category(let raw): raw
             }
         }
     }
 
     @State private var sheet: BudgetSheet?
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var digest: MonthlyDigest {
         MonthlyDigest(month: month, allTransactions: allTransactions)
@@ -59,12 +62,12 @@ struct BudgetView: View {
                 ) { amount in
                     mutableBudget().totalTarget = amount
                 }
-            case .category(let category):
+            case .category(let raw):
                 AmountEntrySheet(
-                    title: "\(category.label) 예산",
-                    initialAmount: budget?.target(for: category) ?? 0
+                    title: "\(catalog.category(forRaw: raw).label) 예산",
+                    initialAmount: budget?.target(forRaw: raw) ?? 0
                 ) { amount in
-                    mutableBudget().setTarget(amount, for: category)
+                    mutableBudget().setTarget(amount, forRaw: raw)
                 }
             }
         }
@@ -124,7 +127,10 @@ struct BudgetView: View {
     }
 
     private var categoryBudgets: some View {
-        let budgeted = budget?.budgetedCategories ?? []
+        // Sorted here rather than in `Budget`: only the catalog knows where the user's own
+        // categories sit relative to the built-in ones.
+        let budgeted = (budget?.budgetedRaws ?? [])
+            .sorted { catalog.orderIndex(ofRaw: $0) < catalog.orderIndex(ofRaw: $1) }
 
         return VStack(alignment: .leading, spacing: 16) {
             SectionTitle(title: "카테고리별 예산")
@@ -136,23 +142,24 @@ struct BudgetView: View {
                 )
             } else {
                 VStack(spacing: 14) {
-                    ForEach(budgeted, id: \.self) { category in
-                        categoryRow(category)
+                    ForEach(budgeted, id: \.self) { raw in
+                        categoryRow(raw)
                     }
                 }
             }
         }
     }
 
-    private func categoryRow(_ category: Category) -> some View {
-        let target = budget?.target(for: category) ?? 0
-        let spent = digest.total(for: category)
+    private func categoryRow(_ raw: String) -> some View {
+        let category = catalog.category(forRaw: raw)
+        let target = budget?.target(forRaw: raw) ?? 0
+        let spent = digest.total(forRaw: raw)
         let ratio = target > 0 ? Double(spent) / Double(target) : 0
         let percent = Int((ratio * 100).rounded())
         // Past 90% the figure turns red, matching how the design flags 82% and 96% differently.
         let isNearLimit = percent >= 90
 
-        return Button { sheet = .category(category) } label: {
+        return Button { sheet = .category(raw) } label: {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
@@ -189,9 +196,10 @@ struct BudgetView: View {
         .buttonStyle(.plain)
     }
 
-    private func nextUnbudgetedCategory() -> Category {
-        let budgeted = Set(budget?.budgetedCategories ?? [])
-        return Category.expenseCases.first { !budgeted.contains($0) } ?? .etc
+    private func nextUnbudgetedCategory() -> String {
+        let budgeted = Set(budget?.budgetedRaws ?? [])
+        return catalog.expenseChoices.first { !budgeted.contains($0.raw) }?.raw
+            ?? Category.etc.rawValue
     }
 
     /// Creates the month's budget row on first write, so reading the screen never inserts one.

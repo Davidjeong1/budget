@@ -1,5 +1,4 @@
 import SwiftUI
-import LedgerCore
 
 extension Color {
     init(hex: UInt32) {
@@ -50,8 +49,4 @@ extension Font {
     static let captionRegular = Font.system(size: 13)
     static let captionSmall = Font.system(size: 12)
     static let tabLabel = Font.system(size: 11, weight: .medium)
-}
-
-extension Category {
-    var color: Color { Color(hex: colorHex) }
 }

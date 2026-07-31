@@ -5,10 +5,14 @@ import LedgerCore
 
 struct SettingsView: View {
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
+    @Query private var customCategories: [CustomCategory]
 
     @State private var settings = AppSettings.shared
     @State private var biometricUnavailableMessage: String?
     @State private var exportedCSV: LedgerCSV?
+    @State private var isManagingCategories = false
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -23,6 +27,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
                     ledgerCard
                     notificationGroup
+                    categoryGroup
                     dataGroup
                     infoGroup
                 }
@@ -98,12 +103,29 @@ struct SettingsView: View {
         }
     }
 
+    private var categoryGroup: some View {
+        SettingsGroup(title: "카테고리") {
+            Button {
+                isManagingCategories = true
+            } label: {
+                SettingsRowLabel(
+                    title: "카테고리 관리",
+                    value: "내 카테고리 \(catalog.activeCustoms.count)개"
+                )
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $isManagingCategories) {
+                CategoryManagerView()
+            }
+        }
+    }
+
     private var dataGroup: some View {
         SettingsGroup(title: "데이터") {
             // Built on demand rather than in `body`: eagerly joining the whole ledger into a
             // string on every view update would cost the same whether or not the user ever shares.
             Button {
-                exportedCSV = LedgerCSV(transactions: allTransactions)
+                exportedCSV = LedgerCSV(transactions: allTransactions, catalog: catalog)
             } label: {
                 SettingsRowLabel(title: "소비 데이터 내보내기", value: "CSV")
             }

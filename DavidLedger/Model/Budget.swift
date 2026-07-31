@@ -18,21 +18,20 @@ final class Budget {
         self.categoryTargets = categoryTargets
     }
 
-    func target(for category: Category) -> Int? {
-        categoryTargets[category.rawValue]
+    func target(forRaw raw: String) -> Int? {
+        categoryTargets[raw]
     }
 
-    func setTarget(_ amount: Int?, for category: Category) {
+    func setTarget(_ amount: Int?, forRaw raw: String) {
         if let amount, amount > 0 {
-            categoryTargets[category.rawValue] = amount
+            categoryTargets[raw] = amount
         } else {
-            categoryTargets.removeValue(forKey: category.rawValue)
+            categoryTargets.removeValue(forKey: raw)
         }
     }
 
-    /// Categories with a target, ordered as they appear in `Category.allCases` so the budget list
-    /// does not reshuffle when a target changes.
-    var budgetedCategories: [Category] {
-        Category.allCases.filter { categoryTargets[$0.rawValue] != nil }
-    }
+    /// The keys with a target, unordered — a dictionary has no order to offer. The budget screen
+    /// sorts them through `CategoryCatalog`, which is the only place that knows where the user's
+    /// own categories belong relative to the built-in ones.
+    var budgetedRaws: [String] { Array(categoryTargets.keys) }
 }

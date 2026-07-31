@@ -148,7 +148,9 @@ struct TransactionListView: View {
                     } label: {
                         Text(label(for: option))
                             .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                            .foregroundStyle(isSelected ? Color.white : Palette.textSecondary)
+                            // Not white: the selected chip's fill is `textPrimary`, which is nearly
+                            // white in dark mode and would swallow white text.
+                            .foregroundStyle(isSelected ? Palette.background : Palette.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(isSelected ? Palette.textPrimary : Palette.surface)

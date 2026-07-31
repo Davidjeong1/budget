@@ -10,7 +10,13 @@ final class AppSettings {
         static let dailyReminder = "settings.dailyReminder"
         static let budgetAlert = "settings.budgetAlert"
         static let biometricLock = "settings.biometricLock"
+        static let appearance = "settings.appearance"
+        static let accentColor = "settings.accentColor"
     }
+
+    /// The design's indigo. Needed as an explicit fallback because `UserDefaults.integer` returns 0
+    /// for a missing key, and 0 is black — an unset preference would otherwise read as a choice.
+    static let defaultAccentColorValue = 0x4F46E5
 
     private let defaults: UserDefaults
 
@@ -19,6 +25,9 @@ final class AppSettings {
         self.dailyReminderEnabled = defaults.bool(forKey: Key.dailyReminder)
         self.budgetAlertEnabled = defaults.bool(forKey: Key.budgetAlert)
         self.biometricLockEnabled = defaults.bool(forKey: Key.biometricLock)
+        self.appearance = Appearance(rawValue: defaults.string(forKey: Key.appearance) ?? "") ?? .system
+        let storedAccent = defaults.integer(forKey: Key.accentColor)
+        self.accentColorValue = storedAccent == 0 ? Self.defaultAccentColorValue : storedAccent
     }
 
     var dailyReminderEnabled: Bool {
@@ -31,5 +40,33 @@ final class AppSettings {
 
     var biometricLockEnabled: Bool {
         didSet { defaults.set(biometricLockEnabled, forKey: Key.biometricLock) }
+    }
+
+    var appearance: Appearance {
+        didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
+    }
+
+    /// The accent as 0xRRGGBB. `Int` rather than `UInt32` because that is what `UserDefaults`
+    /// stores natively.
+    var accentColorValue: Int {
+        didSet { defaults.set(accentColorValue, forKey: Key.accentColor) }
+    }
+}
+
+/// Which palette the app draws with. `system` follows iOS rather than pinning an appearance, and is
+/// the default so a fresh install matches the rest of the device.
+enum Appearance: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: "시스템"
+        case .light: "라이트"
+        case .dark: "다크"
+        }
     }
 }

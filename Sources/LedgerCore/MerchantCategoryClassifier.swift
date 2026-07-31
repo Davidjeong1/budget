@@ -1,8 +1,8 @@
 import Foundation
 
-/// Guesses a ledger category from a merchant name so auto-captured payments land in a sensible
-/// bucket instead of always falling into 기타. Keyword matching only — the user can always correct
-/// it, and a correction is what should ultimately drive the category.
+/// Suggests a category from a merchant name while the user types it on the add screen, so a
+/// familiar merchant does not have to be categorised by hand every time. Keyword matching only —
+/// the suggestion is always overridable, and an explicit choice by the user wins.
 public enum MerchantCategoryClassifier {
 
     private static let keywords: [(Category, [String])] = [
@@ -17,25 +17,22 @@ public enum MerchantCategoryClassifier {
         (.transport, [
             "카카오티", "카카오 t", "택시", "지하철", "버스", "코레일", "ktx", "srt",
             "주유", "gs칼텍스", "sk에너지", "s-oil", "현대오일뱅크", "하이패스", "티머니",
+            "서울메트로",
+        ]),
+        (.living, [
+            "쿠팡", "coupang", "이마트", "홈플러스", "롯데마트", "마켓컬리", "다이소",
+            "gs25", "세븐일레븐", "이마트24", "편의점",
         ]),
         (.shopping, [
-            "쿠팡", "coupang", "11번가", "지마켓", "gmarket", "옥션", "네이버쇼핑", "무신사",
-            "올리브영", "다이소", "이마트", "홈플러스", "롯데마트", "ssg", "마켓컬리",
-            "gs25", "세븐일레븐", "이마트24", "편의점",
+            "11번가", "지마켓", "gmarket", "옥션", "네이버쇼핑", "무신사", "올리브영",
+            "ssg", "지그재그", "에이블리",
         ]),
         (.housing, [
             "skt", "lg유플러스", "lgu+", "통신", "한국전력", "도시가스",
-            "관리비", "월세", "임대료", "인터넷",
+            "관리비", "월세", "임대료", "인터넷", "넷플릭스", "netflix", "유튜브", "youtube",
         ]),
-        (.health, [
-            "병원", "의원", "약국", "치과", "한의원", "clinic", "헬스", "피트니스",
-        ]),
-        (.culture, [
-            "cgv", "메가박스", "롯데시네마", "영화", "넷플릭스", "netflix", "왓챠", "웨이브",
-            "유튜브", "youtube", "스포티파이", "spotify", "멜론", "티빙", "노래방", "pc방",
-        ]),
-        (.education, [
-            "학원", "교보문고", "yes24", "알라딘", "인프런", "클래스101", "강의", "서점",
+        (.salary, [
+            "급여", "월급", "상여", "성과급", "환급",
         ]),
     ]
 
@@ -43,9 +40,8 @@ public enum MerchantCategoryClassifier {
     /// with unrelated names — "CU" inside "CUCKOO", "KT" inside "KTX" — so a substring match would
     /// misfile them.
     private static let wordKeywords: [(Category, [String])] = [
-        (.shopping, ["cu", "쓱"]),
+        (.living, ["cu", "쓱"]),
         (.housing, ["kt", "수도"]),
-        (.health, ["짐"]),
     ]
 
     public static func classify(_ merchant: String?) -> Category {

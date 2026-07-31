@@ -1,5 +1,5 @@
 import XCTest
-@testable import LedgerParser
+@testable import LedgerCore
 
 final class MerchantCategoryClassifierTests: XCTestCase {
 
@@ -15,24 +15,34 @@ final class MerchantCategoryClassifierTests: XCTestCase {
     }
 
     func testTransportMerchants() {
-        XCTAssertEqual(MerchantCategoryClassifier.classify("카카오티 택시"), .transport)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("서울메트로"), .transport)
         XCTAssertEqual(MerchantCategoryClassifier.classify("GS칼텍스 셀프주유소"), .transport)
     }
 
-    func testShoppingMerchants() {
-        XCTAssertEqual(MerchantCategoryClassifier.classify("쿠팡"), .shopping)
-        XCTAssertEqual(MerchantCategoryClassifier.classify("GS25 삼성점"), .shopping)
+    func testLivingMerchants() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("쿠팡"), .living)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("이마트 성수점"), .living)
     }
 
-    func testCultureMerchants() {
-        XCTAssertEqual(MerchantCategoryClassifier.classify("NETFLIX.COM"), .culture)
-        XCTAssertEqual(MerchantCategoryClassifier.classify("CGV 왕십리"), .culture)
+    func testShoppingMerchants() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("무신사 스토어"), .shopping)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("올리브영"), .shopping)
+    }
+
+    func testHousingMerchants() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("NETFLIX.COM"), .housing)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("도시가스 요금"), .housing)
+    }
+
+    func testSalaryIsIncome() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("월급 (머니컴퍼니)"), .salary)
+        XCTAssertTrue(Category.salary.isIncome)
     }
 
     /// Short ASCII keywords are matched as whole words, so they must not swallow longer names that
     /// merely contain them.
     func testShortKeywordsMatchWholeWordsOnly() {
-        XCTAssertEqual(MerchantCategoryClassifier.classify("CU 역삼점"), .shopping)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("CU 역삼점"), .living)
         XCTAssertEqual(MerchantCategoryClassifier.classify("CUCKOO 전자"), .etc)
         XCTAssertEqual(MerchantCategoryClassifier.classify("KT 통신요금"), .housing)
         XCTAssertEqual(MerchantCategoryClassifier.classify("KTX 서울역"), .transport)
@@ -42,5 +52,10 @@ final class MerchantCategoryClassifierTests: XCTestCase {
         XCTAssertEqual(MerchantCategoryClassifier.classify("무슨무슨상사"), .etc)
         XCTAssertEqual(MerchantCategoryClassifier.classify(nil), .etc)
         XCTAssertEqual(MerchantCategoryClassifier.classify("   "), .etc)
+    }
+
+    func testExpenseChipsExcludeIncome() {
+        XCTAssertFalse(Category.expenseCases.contains(.salary))
+        XCTAssertEqual(Category.expenseCases.count, 7)
     }
 }

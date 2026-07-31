@@ -1,254 +1,155 @@
 import SwiftUI
 import SwiftData
-import LedgerParser
+import LedgerCore
 
 struct HomeView: View {
+    @Binding var month: MonthRange
+    var onSeeAllTransactions: () -> Void
+
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
+    @Query private var budgets: [Budget]
 
-    @State private var month = MonthRange(containing: .now)
-    @State private var editing: Transaction?
-    @State private var isAdding = false
-    @State private var showsSettings = false
-
-    private var transactions: [Transaction] {
-        allTransactions.filter { month.contains($0.occurredAt) }
+    private var digest: MonthlyDigest {
+        MonthlyDigest(month: month, allTransactions: allTransactions)
     }
 
-    private var expenseTotal: Int {
-        transactions.filter(\.isExpense).reduce(0) { $0 + $1.amount }
-    }
-
-    private var incomeTotal: Int {
-        transactions.filter { !$0.isExpense }.reduce(0) { $0 + $1.amount }
-    }
-
-    /// Nets cancellations into their category so the bars add up to `expenseTotal`. A category
-    /// that ends up at or below zero is dropped rather than drawn as an empty bar.
-    private var categoryTotals: [(category: Category, total: Int)] {
-        Dictionary(grouping: transactions.filter(\.isExpense), by: \.category)
-            .map { (category: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }) }
-            .filter { $0.total > 0 }
-            .sorted { $0.total > $1.total }
+    private var budgetTarget: Int? {
+        budgets.first { $0.monthStart == month.start }.map(\.totalTarget)
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    MonthSummaryCard(
-                        month: $month,
-                        expenseTotal: expenseTotal,
-                        incomeTotal: incomeTotal,
-                        categoryTotals: categoryTotals
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                }
+        VStack(spacing: 0) {
+            ScreenHeader(title: "다비드 가계부") {
+                HeaderIconButton(systemName: "bell") {}
+            }
 
-                if transactions.isEmpty {
-                    Section { EmptyLedgerMessage() }
-                } else {
-                    Section {
-                        ForEach(transactions) { transaction in
-                            Button { editing = transaction } label: {
-                                TransactionRow(transaction: transaction)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .onDelete(perform: delete)
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
+                    summaryCard
+                    weeklyTrend
+                    recentTransactions
                 }
+                .padding(.horizontal, Metrics.screenPadding)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("다비드 가계부")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showsSettings = true } label: {
-                        Label("설정", systemImage: "gearshape")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { isAdding = true } label: {
-                        Label("직접 입력", systemImage: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $isAdding) { AddEditView(transaction: nil) }
-            .sheet(item: $editing) { AddEditView(transaction: $0) }
-            .sheet(isPresented: $showsSettings) { SettingsView() }
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        for index in offsets {
-            context.delete(transactions[index])
+    private var summaryCard: some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Button {
+                        month = month.previous
+                    } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Palette.textTertiary)
+
+                    Text("\(month.monthLabel) 소비 현황")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Palette.textSecondary)
+
+                    Button {
+                        month = month.next
+                    } label: {
+                        Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Palette.textTertiary)
+
+                    Spacer()
+
+                    if let budgetTarget {
+                        Text("예산 대비 \(digest.budgetPercent(target: budgetTarget))%")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Palette.accent)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(CurrencyFormatter.string(from: digest.expenseTotal))
+                        .font(.cardAmount)
+                        .foregroundStyle(Palette.textPrimary)
+                    if let budgetTarget {
+                        Text("남은 예산 \(CurrencyFormatter.string(from: max(budgetTarget - digest.expenseTotal, 0)))")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Palette.textTertiary)
+                    } else {
+                        Text("예산을 설정하면 남은 금액이 표시됩니다")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Palette.textTertiary)
+                    }
+                }
+
+                Rectangle().fill(Palette.border).frame(height: 1)
+
+                HStack(spacing: 16) {
+                    amountColumn(title: "수입", amount: digest.incomeTotal, color: Palette.income)
+                    amountColumn(title: "지출", amount: digest.expenseTotal, color: Palette.expense)
+                }
+            }
         }
     }
-}
 
-private struct MonthSummaryCard: View {
-    @Binding var month: MonthRange
-    let expenseTotal: Int
-    let incomeTotal: Int
-    let categoryTotals: [(category: Category, total: Int)]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Button { month = month.previous } label: {
-                    Image(systemName: "chevron.left")
-                }
-                Spacer()
-                Text(month.title).font(.headline)
-                Spacer()
-                Button { month = month.next } label: {
-                    Image(systemName: "chevron.right")
-                }
-            }
-            .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(CurrencyFormatter.string(from: expenseTotal))
-                    .font(.largeTitle.bold())
-                // Not "이번 달" — the card pages through months.
-                Text("지출").font(.subheadline).foregroundStyle(.secondary)
-            }
-
-            if incomeTotal > 0 {
-                Text("수입 \(CurrencyFormatter.string(from: incomeTotal))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            if !categoryTotals.isEmpty {
-                CategoryBreakdown(entries: categoryTotals)
-            }
+    private func amountColumn(title: String, amount: Int, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.captionSmall)
+                .foregroundStyle(Palette.textSecondary)
+            Text(CurrencyFormatter.string(from: amount))
+                .font(.bodyValue)
+                .foregroundStyle(color)
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal)
-        .padding(.bottom, 8)
     }
-}
 
-private struct CategoryBreakdown: View {
-    let entries: [(category: Category, total: Int)]
+    private var weeklyTrend: some View {
+        let weeks = digest.weeklyTotals()
+        let maximum = max(weeks.map(\.total).max() ?? 0, 1)
 
-    var body: some View {
-        let maximum = max(entries.map(\.total).max() ?? 1, 1)
+        return VStack(alignment: .leading, spacing: 16) {
+            SectionTitle(title: "주간 지출 추이")
 
-        VStack(spacing: 6) {
-            ForEach(entries.prefix(5), id: \.category) { entry in
-                HStack(spacing: 8) {
-                    Text(entry.category.label)
-                        .font(.caption)
-                        .frame(width: 68, alignment: .leading)
-
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(.quaternary)
-                            Capsule()
-                                .fill(Color.accentColor)
-                                .frame(width: proxy.size.width * ratio(entry.total, of: maximum))
-                        }
+            HStack(alignment: .bottom) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    VStack(spacing: 8) {
+                        // 76pt is the tallest bar in the design; every bar scales against the
+                        // month's own peak so an empty month still renders a flat baseline.
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(week.isCurrent ? Palette.accent : Palette.border)
+                            .frame(width: 20, height: max(CGFloat(week.total) / CGFloat(maximum) * 76, 4))
+                        Text(week.label)
+                            .font(.system(size: 11, weight: week.isCurrent ? .semibold : .regular))
+                            .foregroundStyle(week.isCurrent ? Palette.accent : Palette.textSecondary)
                     }
-                    .frame(height: 8)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 100, alignment: .bottom)
+            .padding(.bottom, 8)
+        }
+    }
 
-                    Text(CurrencyFormatter.string(from: entry.total))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+    private var recentTransactions: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SectionTitle(title: "최근 내역", trailing: "더보기", onTrailingTap: onSeeAllTransactions)
+
+            if digest.recent.isEmpty {
+                EmptyStateView(
+                    title: "아직 내역이 없습니다",
+                    message: "아래 추가 탭에서 첫 내역을 기록해 보세요."
+                )
+            } else {
+                VStack(spacing: Metrics.rowSpacing) {
+                    ForEach(digest.recent) { transaction in
+                        CompactTransactionRow(transaction: transaction)
+                    }
                 }
             }
         }
     }
-
-    private func ratio(_ value: Int, of maximum: Int) -> Double {
-        min(max(Double(value) / Double(maximum), 0), 1)
-    }
-}
-
-private struct TransactionRow: View {
-    let transaction: Transaction
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(transaction.merchant).font(.subheadline.weight(.semibold))
-                    if transaction.isAutoCaptured {
-                        Text("자동")
-                            .font(.caption2)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
-                    }
-                }
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Text(CurrencyFormatter.signedString(from: transaction.signedAmount))
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(transaction.signedAmount < 0 ? Color.primary : Color.green)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var subtitle: String {
-        var parts = [
-            transaction.category.label,
-            "\(transaction.occurredAt.dayLabel) \(transaction.occurredAt.timeLabel)",
-        ]
-        if let months = transaction.installmentMonths {
-            parts.append("\(months)개월 할부")
-        }
-        return parts.joined(separator: " · ")
-    }
-}
-
-private struct EmptyLedgerMessage: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("아직 내역이 없습니다").font(.subheadline.weight(.semibold))
-            Text("설정에서 단축어 자동화를 만들면 카드 승인 문자가 도착할 때마다 자동으로 기록됩니다.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 8)
-    }
-}
-
-/// A calendar month, used to scope the ledger list and the totals.
-struct MonthRange: Equatable {
-    let start: Date
-    let end: Date
-    private let calendar: Calendar
-
-    init(containing date: Date, calendar: Calendar = .current) {
-        self.calendar = calendar
-        let interval = calendar.dateInterval(of: .month, for: date)
-        self.start = interval?.start ?? date
-        self.end = interval?.end ?? date
-    }
-
-    func contains(_ date: Date) -> Bool { date >= start && date < end }
-
-    var title: String {
-        start.formatted(.dateTime.locale(Locale(identifier: "ko_KR")).year().month())
-    }
-
-    var previous: MonthRange {
-        let date = calendar.date(byAdding: .month, value: -1, to: start) ?? start
-        return MonthRange(containing: date, calendar: calendar)
-    }
-
-    var next: MonthRange {
-        let date = calendar.date(byAdding: .month, value: 1, to: start) ?? start
-        return MonthRange(containing: date, calendar: calendar)
-    }
-
-    static func == (lhs: MonthRange, rhs: MonthRange) -> Bool { lhs.start == rhs.start }
 }

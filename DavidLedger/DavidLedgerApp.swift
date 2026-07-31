@@ -3,12 +3,23 @@ import SwiftData
 
 @main
 struct DavidLedgerApp: App {
+    @State private var settings = AppSettings.shared
+    @State private var isUnlocked = false
+
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            Group {
+                if settings.biometricLockEnabled && !isUnlocked {
+                    LockScreen { isUnlocked = true }
+                } else {
+                    RootView()
+                }
+            }
+            // Turning the lock off while locked must not leave the user stuck behind it.
+            .onChange(of: settings.biometricLockEnabled) { _, enabled in
+                if !enabled { isUnlocked = true }
+            }
         }
-        // The same container the App Intent and the share extension use, so a payment recorded by
-        // the Shortcuts automation shows up in the open app immediately.
         .modelContainer(LedgerStore.shared)
     }
 }

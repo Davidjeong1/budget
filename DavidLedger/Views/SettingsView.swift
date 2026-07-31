@@ -1,144 +1,183 @@
 import SwiftUI
 import SwiftData
-import LedgerParser
+import LocalAuthentication
+import LedgerCore
 
 struct SettingsView: View {
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
 
-    @State private var testText = ""
-    @State private var testResult: String?
+    @State private var settings = AppSettings.shared
+    @State private var biometricUnavailableMessage: String?
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        return "v\(version)"
+    }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                if LedgerStore.isUsingFallbackStore {
-                    Section {
-                        Label(
-                            """
-                            App Group을 사용할 수 없어 앱 내부 저장소를 쓰고 있습니다. \
-                            공유 시트로 기록한 내역이 앱에 보이지 않습니다. \
-                            Xcode의 Signing & Capabilities에서 두 타깃 모두에 \
-                            App Group을 추가해 주세요.
-                            """,
-                            systemImage: "exclamationmark.triangle.fill"
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                    }
+        VStack(spacing: 0) {
+            ScreenHeader(title: "설정")
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
+                    ledgerCard
+                    notificationGroup
+                    dataGroup
+                    infoGroup
                 }
-
-                Section {
-                    // One string literal, so SwiftUI resolves the LocalizedStringKey initialiser
-                    // and renders the markdown. String concatenation would print the asterisks.
-                    Text("""
-                    iOS는 앱이 문자나 다른 앱의 알림을 직접 읽는 것을 허용하지 않습니다. \
-                    대신 **단축어 자동화**를 한 번 만들어두면, 문자가 올 때마다 그 내용이 \
-                    이 앱으로 전달되어 자동으로 기록됩니다.
-                    """)
-                    .font(.footnote)
-                } header: {
-                    Text("자동 기록은 이렇게 동작합니다")
-                }
-
-                Section("단축어 자동화 만들기") {
-                    ForEach(Array(automationSteps.enumerated()), id: \.offset) { index, step in
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text("\(index + 1)")
-                                .font(.caption.bold())
-                                .frame(width: 18, height: 18)
-                                .background(.tint.opacity(0.15), in: Circle())
-                            Text(step).font(.footnote)
-                        }
-                    }
-
-                    Link(destination: URL(string: "shortcuts://")!) {
-                        Label("단축어 앱 열기", systemImage: "arrow.up.forward.app")
-                    }
-                }
-
-                Section {
-                    Text("""
-                    카카오톡으로 오는 승인 알림톡은 iOS에서 어떤 앱도 읽을 수 없습니다. \
-                    카카오톡 결제 알림은 알림을 길게 눌러 공유하거나 직접 입력해 주세요.
-                    """)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                } header: {
-                    Text("카카오톡 알림")
-                }
-
-                Section {
-                    Text("문자를 길게 눌러 **공유 → 다비드 가계부**를 선택하면 그 자리에서 기록됩니다.")
-                        .font(.footnote)
-                } header: {
-                    Text("공유 시트로 기록하기")
-                }
-
-                testSection
-
-                Section {
-                    Text("읽어들인 메시지는 기기 안에서만 분석되고 저장됩니다. 외부로 전송되지 않습니다.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } header: {
-                    Text("개인정보 처리")
-                }
+                .padding(.horizontal, Metrics.screenPadding)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
             }
-            .navigationTitle("설정")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("완료") { dismiss() }
+        }
+        .alert(
+            "생체 인증을 사용할 수 없습니다",
+            isPresented: .init(
+                get: { biometricUnavailableMessage != nil },
+                set: { if !$0 { biometricUnavailableMessage = nil } }
+            )
+        ) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(biometricUnavailableMessage ?? "")
+        }
+    }
+
+    /// The design puts an account card here. This app has no accounts, so the slot shows what the
+    /// ledger actually holds rather than inventing a signed-in user.
+    private var ledgerCard: some View {
+        SurfaceCard {
+            HStack(spacing: 14) {
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Palette.accent)
+                    .frame(width: 48, height: 48)
+                    .background(Palette.accent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("다비드 가계부")
+                        .font(.rowTitle)
+                        .foregroundStyle(Palette.textPrimary)
+                    Text("기록된 내역 \(allTransactions.count)건")
+                        .font(.captionSmall)
+                        .foregroundStyle(Palette.textTertiary)
                 }
+                Spacer()
             }
         }
     }
 
-    /// Lets the user check their own card company's wording before trusting the automation with
-    /// it, rather than finding out weeks later that nothing was recorded.
-    private var testSection: some View {
-        Section {
-            TextField("카드 승인 문자를 붙여넣어 보세요", text: $testText, axis: .vertical)
-                .lineLimit(3...6)
-                .font(.footnote)
+    private var notificationGroup: some View {
+        SettingsGroup(title: "알림 및 보안") {
+            SettingsToggleRow(title: "매일 저녁 소비 알림", isOn: $settings.dailyReminderEnabled)
+                .onChange(of: settings.dailyReminderEnabled) { _, enabled in
+                    Task { await NotificationScheduler.setDailyReminder(enabled: enabled) }
+                }
 
-            Button("인식 결과 확인") { runTest() }
-                .disabled(testText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            SettingsToggleRow(title: "예산 90% 초과시 알림", isOn: $settings.budgetAlertEnabled)
+                .onChange(of: settings.budgetAlertEnabled) { _, enabled in
+                    guard enabled else { return }
+                    Task { await NotificationScheduler.requestAuthorization() }
+                }
 
-            if let testResult {
-                Text(testResult).font(.footnote).foregroundStyle(.secondary)
+            SettingsToggleRow(title: "생체 인증 사용", isOn: $settings.biometricLockEnabled)
+                .onChange(of: settings.biometricLockEnabled) { _, enabled in
+                    guard enabled else { return }
+                    var error: NSError?
+                    let context = LAContext()
+                    // Turning the lock on without a usable sensor would lock the user out, so the
+                    // toggle refuses rather than trusting the preference blindly.
+                    if !context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+                        settings.biometricLockEnabled = false
+                        biometricUnavailableMessage = error?.localizedDescription
+                            ?? "이 기기에서 Face ID 또는 암호를 사용할 수 없습니다."
+                    }
+                }
+        }
+    }
+
+    private var dataGroup: some View {
+        SettingsGroup(title: "데이터") {
+            ShareLink(item: LedgerCSV(transactions: allTransactions), preview: .init("가계부 CSV")) {
+                SettingsRowLabel(title: "소비 데이터 내보내기", value: "CSV")
             }
-        } header: {
-            Text("인식 테스트")
-        } footer: {
-            Text("여기서는 가계부에 저장하지 않고 인식 결과만 보여줍니다.")
+            .buttonStyle(.plain)
+            .disabled(allTransactions.isEmpty)
         }
     }
 
-    private func runTest() {
-        guard let payment = PaymentMessageParser.parse(testText, source: .manual) else {
-            testResult = "결제 문자로 인식하지 못했습니다."
-            return
-        }
-        var lines = [
-            "금액: \(CurrencyFormatter.string(from: payment.amount))",
-            "사용처: \(payment.merchant ?? "인식 실패")",
-            "분류: \(MerchantCategoryClassifier.classify(payment.merchant).label)",
-        ]
-        if let issuer = payment.issuer { lines.append("카드사: \(issuer)") }
-        if let last4 = payment.cardLast4 { lines.append("카드번호: \(last4)") }
-        if let months = payment.installmentMonths { lines.append("할부: \(months)개월") }
-        if payment.isCancellation { lines.append("승인 취소 건") }
-        testResult = lines.joined(separator: "\n")
-    }
+    private var infoGroup: some View {
+        SettingsGroup(title: "앱 정보") {
+            SettingsRowLabel(title: "버전 정보", value: appVersion, showsChevron: false)
 
-    private let automationSteps = [
-        "단축어 앱에서 [자동화] 탭을 엽니다.",
-        "[새로운 자동화] → [메시지]를 선택합니다.",
-        "[메시지에 다음이 포함] 에 '승인' 을 넣고, 보낸 사람은 비워 둡니다.",
-        "[즉시 실행] 을 켜고 [실행 시 알림] 은 끕니다.",
-        "동작으로 [결제 문자 가계부에 기록] 을 추가합니다.",
-        "메시지 내용 항목에 [메시지 내용] 변수를 넣고 저장합니다.",
-    ]
+            Text("기록한 내역은 이 기기 안에만 저장됩니다. 외부로 전송되지 않으며, 앱을 삭제하면 함께 지워집니다.")
+                .font(.captionSmall)
+                .foregroundStyle(Palette.textTertiary)
+                .padding(.top, 4)
+        }
+    }
+}
+
+private struct SettingsGroup<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.captionSmall)
+                .foregroundStyle(Palette.textTertiary)
+            VStack(spacing: 10) { content }
+        }
+    }
+}
+
+private struct SettingsToggleRow: View {
+    let title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            Text(title)
+                .font(.rowTitle)
+                .foregroundStyle(Palette.textPrimary)
+        }
+        .tint(Palette.accent)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+    }
+}
+
+private struct SettingsRowLabel: View {
+    let title: String
+    var value: String?
+    var showsChevron = true
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.rowTitle)
+                .foregroundStyle(Palette.textPrimary)
+            Spacer()
+            if let value {
+                Text(value)
+                    .font(.captionSmall)
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Palette.textTertiary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+    }
 }

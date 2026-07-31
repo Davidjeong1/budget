@@ -1,17 +1,15 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
-// The message-recognition logic lives in its own package with no UIKit/SwiftUI dependency so it
-// can be unit tested on any machine, and so the app, the App Intent and the share extension all
-// parse messages exactly the same way.
+// Ledger domain types with no UIKit/SwiftUI dependency, so they can be unit tested on any machine.
 let package = Package(
-    name: "LedgerParser",
+    name: "LedgerCore",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "LedgerParser", targets: ["LedgerParser"]),
+        .library(name: "LedgerCore", targets: ["LedgerCore"]),
     ],
     targets: [
-        .target(name: "LedgerParser"),
-        .testTarget(name: "LedgerParserTests", dependencies: ["LedgerParser"]),
+        .target(name: "LedgerCore"),
+        .testTarget(name: "LedgerCoreTests", dependencies: ["LedgerCore"]),
     ]
 )

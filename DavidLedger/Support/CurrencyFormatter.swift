@@ -59,11 +59,6 @@ extension Date {
         formatted(.dateTime.locale(Locale(identifier: "ko_KR")).hour(.twoDigits(amPM: .omitted)).minute())
     }
 
-    /// "2024년 10월 24일" — the add screen's date row.
-    var longDateLabel: String {
-        formatted(.dateTime.locale(Locale(identifier: "ko_KR")).year().month().day())
-    }
-
     /// "10월" — used in the dashboard card's "10월 소비 현황".
     var monthLabel: String {
         formatted(.dateTime.locale(Locale(identifier: "ko_KR")).month())

@@ -9,8 +9,21 @@ struct BudgetView: View {
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
     @Query private var budgets: [Budget]
 
-    @State private var editingCategory: Category?
-    @State private var isEditingTotal = false
+    /// One sheet driver rather than two stacked `.sheet` modifiers, which SwiftUI has historically
+    /// handled unreliably.
+    private enum BudgetSheet: Identifiable {
+        case total
+        case category(Category)
+
+        var id: String {
+            switch self {
+            case .total: "total"
+            case .category(let category): category.rawValue
+            }
+        }
+    }
+
+    @State private var sheet: BudgetSheet?
 
     private var digest: MonthlyDigest {
         MonthlyDigest(month: month, allTransactions: allTransactions)
@@ -23,7 +36,7 @@ struct BudgetView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(title: "예산 설정") {
-                HeaderIconButton(systemName: "plus") { editingCategory = nextUnbudgetedCategory() }
+                HeaderIconButton(systemName: "plus") { sheet = .category(nextUnbudgetedCategory()) }
             }
 
             ScrollView {
@@ -37,20 +50,22 @@ struct BudgetView: View {
                 .padding(.bottom, 24)
             }
         }
-        .sheet(isPresented: $isEditingTotal) {
-            AmountEntrySheet(
-                title: "총 목표 예산",
-                initialAmount: budget?.totalTarget ?? 0
-            ) { amount in
-                setTotalTarget(amount)
-            }
-        }
-        .sheet(item: $editingCategory) { category in
-            AmountEntrySheet(
-                title: "\(category.label) 예산",
-                initialAmount: budget?.target(for: category) ?? 0
-            ) { amount in
-                setCategoryTarget(amount, for: category)
+        .sheet(item: $sheet) { destination in
+            switch destination {
+            case .total:
+                AmountEntrySheet(
+                    title: "총 목표 예산",
+                    initialAmount: budget?.totalTarget ?? 0
+                ) { amount in
+                    mutableBudget().totalTarget = amount
+                }
+            case .category(let category):
+                AmountEntrySheet(
+                    title: "\(category.label) 예산",
+                    initialAmount: budget?.target(for: category) ?? 0
+                ) { amount in
+                    mutableBudget().setTarget(amount, for: category)
+                }
             }
         }
     }
@@ -73,7 +88,7 @@ struct BudgetView: View {
     }
 
     private var totalCard: some View {
-        Button { isEditingTotal = true } label: {
+        Button { sheet = .total } label: {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
@@ -137,7 +152,7 @@ struct BudgetView: View {
         // Past 90% the figure turns red, matching how the design flags 82% and 96% differently.
         let isNearLimit = percent >= 90
 
-        return Button { editingCategory = category } label: {
+        return Button { sheet = .category(category) } label: {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
@@ -180,19 +195,15 @@ struct BudgetView: View {
     }
 
     /// Creates the month's budget row on first write, so reading the screen never inserts one.
+    ///
+    /// Goes through the store rather than the `@Query` array: that snapshot is stale immediately
+    /// after an insert, so a second edit in the same update cycle would insert a duplicate and the
+    /// unique constraint would upsert away the value just saved.
     private func mutableBudget() -> Budget {
-        if let budget { return budget }
+        if let existing = LedgerStore.budget(for: month, in: context) { return existing }
         let created = Budget(monthStart: month.start, totalTarget: 0)
         context.insert(created)
         return created
-    }
-
-    private func setTotalTarget(_ amount: Int) {
-        mutableBudget().totalTarget = amount
-    }
-
-    private func setCategoryTarget(_ amount: Int, for category: Category) {
-        mutableBudget().setTarget(amount, for: category)
     }
 }
 
@@ -253,6 +264,7 @@ private struct AmountEntrySheet: View {
                 if initialAmount > 0 { digits = String(initialAmount) }
             }
         }
-        .presentationDetents([.height(300)])
+        // .medium rather than a fixed 300pt, which the number pad would cover.
+        .presentationDetents([.medium])
     }
 }

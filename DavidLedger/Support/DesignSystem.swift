@@ -45,7 +45,9 @@ extension Font {
     static let rowTitle = Font.system(size: 14, weight: .semibold)
     static let rowAmount = Font.system(size: 14, weight: .semibold)
     static let bodyValue = Font.system(size: 16, weight: .semibold)
-    static let caption = Font.system(size: 13)
+    // Not named `caption`: that would shadow SwiftUI's own `Font.caption`, and every `.font(.caption)`
+    // in the app would silently become a fixed 13pt.
+    static let captionRegular = Font.system(size: 13)
     static let captionSmall = Font.system(size: 12)
     static let tabLabel = Font.system(size: 11, weight: .medium)
 }

@@ -8,6 +8,7 @@ struct SettingsView: View {
 
     @State private var settings = AppSettings.shared
     @State private var biometricUnavailableMessage: String?
+    @State private var exportedCSV: LedgerCSV?
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -99,11 +100,18 @@ struct SettingsView: View {
 
     private var dataGroup: some View {
         SettingsGroup(title: "데이터") {
-            ShareLink(item: LedgerCSV(transactions: allTransactions), preview: .init("가계부 CSV")) {
+            // Built on demand rather than in `body`: eagerly joining the whole ledger into a
+            // string on every view update would cost the same whether or not the user ever shares.
+            Button {
+                exportedCSV = LedgerCSV(transactions: allTransactions)
+            } label: {
                 SettingsRowLabel(title: "소비 데이터 내보내기", value: "CSV")
             }
             .buttonStyle(.plain)
             .disabled(allTransactions.isEmpty)
+            .sheet(item: $exportedCSV) { csv in
+                ShareSheet(csv: csv)
+            }
         }
     }
 

@@ -43,7 +43,7 @@ struct MonthlyDigest {
             let total = transactions
                 .filter { $0.isExpense && bucket.range.contains($0.occurredAt) }
                 .reduce(0) { $0 + $1.amount }
-            return (bucket.label, max(total, 0), bucket.label.hasSuffix("(이번주)"))
+            return (bucket.label, max(total, 0), bucket.isCurrent)
         }
     }
 

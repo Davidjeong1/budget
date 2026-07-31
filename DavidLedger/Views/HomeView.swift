@@ -20,9 +20,9 @@ struct HomeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(title: "다비드 가계부") {
-                HeaderIconButton(systemName: "bell") {}
-            }
+            // The design has a bell here, but there is no notification centre to open — an
+            // affordance that does nothing is worse than none.
+            ScreenHeader(title: "다비드 가계부")
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {

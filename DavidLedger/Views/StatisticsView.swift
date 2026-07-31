@@ -34,9 +34,7 @@ struct StatisticsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(title: "지출 분석") {
-                HeaderIconButton(systemName: "arrow.up.right") {}
-            }
+            ScreenHeader(title: "지출 분석")
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {

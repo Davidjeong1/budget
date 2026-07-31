@@ -57,7 +57,7 @@ struct SectionTitle: View {
                     onTrailingTap?()
                 } label: {
                     Text(trailing)
-                        .font(.caption)
+                        .font(.captionRegular)
                         .foregroundStyle(Palette.textSecondary)
                 }
                 .buttonStyle(.plain)

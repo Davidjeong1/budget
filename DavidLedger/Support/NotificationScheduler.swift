@@ -38,21 +38,29 @@ enum NotificationScheduler {
         try? await center.add(request)
     }
 
-    /// Fires once when a month's spending first crosses 90% of its budget. The month is part of
-    /// the identifier so each month can alert once, and re-crossing within the same month after a
-    /// refund does not spam.
+    private static let alertedMonthsKey = "notifications.alertedBudgetMonths"
+
+    /// Fires once when a month's spending first crosses 90% of its budget.
+    ///
+    /// The set of already-alerted months is kept in UserDefaults rather than inferred from
+    /// `deliveredNotifications()`, which empties as soon as the user clears Notification Center
+    /// and would let the alert fire again on every subsequent save.
     static func notifyBudgetThresholdIfNeeded(
         monthStart: Date,
         percent: Int,
-        enabled: Bool
+        enabled: Bool,
+        defaults: UserDefaults = .standard
     ) async {
         guard enabled, percent >= 90 else { return }
-        let center = UNUserNotificationCenter.current()
-        let identifier = budgetAlertPrefix + ISO8601DateFormatter().string(from: monthStart)
 
-        let alreadyDelivered = await center.deliveredNotifications()
-            .contains { $0.request.identifier == identifier }
-        guard !alreadyDelivered, await requestAuthorization() else { return }
+        let monthKey = ISO8601DateFormatter().string(from: monthStart)
+        var alerted = Set(defaults.stringArray(forKey: alertedMonthsKey) ?? [])
+        guard !alerted.contains(monthKey), await requestAuthorization() else { return }
+        alerted.insert(monthKey)
+        defaults.set(Array(alerted), forKey: alertedMonthsKey)
+
+        let center = UNUserNotificationCenter.current()
+        let identifier = budgetAlertPrefix + monthKey
 
         let content = UNMutableNotificationContent()
         content.title = "예산 \(percent)% 사용"

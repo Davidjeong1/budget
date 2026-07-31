@@ -6,6 +6,8 @@ struct AddTransactionView: View {
     /// nil when adding; set when the list opens an existing row for editing.
     var editing: Transaction?
     var onSaved: () -> Void
+    /// Set by the presenter when editing, so the delete happens after this sheet is gone.
+    var onRequestDelete: (() -> Void)?
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -103,8 +105,10 @@ struct AddTransactionView: View {
                 .font(.captionSmall)
                 .foregroundStyle(Palette.textTertiary)
 
-            // A digits-only field keeps the big ₩ figure formatted while the user types.
-            TextField("0", text: $amountDigits)
+            // A digits-only field keeps the big ₩ figure formatted while the user types. The
+            // prompt is empty because the field's own text is invisible and the overlay below
+            // already renders a ₩ 0 placeholder — a prompt would show through on top of it.
+            TextField("", text: $amountDigits)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 32, weight: .bold))
@@ -271,34 +275,39 @@ struct AddTransactionView: View {
             editing.category = category
             editing.memo = trimmedMemo
             editing.occurredAt = occurredAt
+            notifyIfBudgetThresholdCrossed()
             dismiss()
+            onSaved()
         } else {
-            context.insert(
-                Transaction(
-                    amount: amount,
-                    isExpense: isExpense,
-                    merchant: trimmedMerchant,
-                    category: category,
-                    memo: trimmedMemo,
-                    occurredAt: occurredAt
-                )
+            let created = Transaction(
+                amount: amount,
+                isExpense: isExpense,
+                merchant: trimmedMerchant,
+                category: category,
+                memo: trimmedMemo,
+                occurredAt: occurredAt
             )
-            resetForNextEntry()
+            context.insert(created)
+            notifyIfBudgetThresholdCrossed(including: created)
+            onSaved()
         }
-        notifyIfBudgetThresholdCrossed()
-        onSaved()
     }
 
     /// Checked here rather than on a timer, because a saved expense is the only thing that can
     /// push a month past its budget.
-    private func notifyIfBudgetThresholdCrossed() {
+    ///
+    /// `including` matters on the insert path: `@Query` does not re-fetch until the next view
+    /// update, so the transaction that crosses the threshold is not yet in `allTransactions` and
+    /// the alert would otherwise always fire one save late.
+    private func notifyIfBudgetThresholdCrossed(including extra: Transaction? = nil) {
         guard AppSettings.shared.budgetAlertEnabled else { return }
         let month = MonthRange(containing: occurredAt)
         guard let budget = budgets.first(where: { $0.monthStart == month.start }),
               budget.totalTarget > 0 else { return }
 
-        let digest = MonthlyDigest(month: month, allTransactions: allTransactions)
-        let percent = digest.budgetPercent(target: budget.totalTarget)
+        let rows = allTransactions + (extra.map { [$0] } ?? [])
+        let percent = MonthlyDigest(month: month, allTransactions: rows)
+            .budgetPercent(target: budget.totalTarget)
         Task {
             await NotificationScheduler.notifyBudgetThresholdIfNeeded(
                 monthStart: month.start,
@@ -308,19 +317,10 @@ struct AddTransactionView: View {
         }
     }
 
-    /// The add tab stays on screen after saving, so clear it rather than leaving the last entry.
-    private func resetForNextEntry() {
-        amountDigits = ""
-        merchant = ""
-        memo = ""
-        category = isExpense ? .food : .salary
-        occurredAt = .now
-        didChooseCategory = false
-    }
-
+    /// Deleting is handed to the presenter rather than done here, because the model must not be
+    /// deleted while this view is still rendering it through the sheet's dismissal animation.
     private func deleteAndClose() {
-        guard let editing else { return }
+        onRequestDelete?()
         dismiss()
-        DispatchQueue.main.async { context.delete(editing) }
     }
 }

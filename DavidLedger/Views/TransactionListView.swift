@@ -12,6 +12,7 @@ struct TransactionListView: View {
     @State private var searchText = ""
     @State private var isSearching = false
     @State private var editing: Transaction?
+    @State private var pendingDelete: Transaction?
 
     /// The chips across the top: the two modes plus the categories actually used this month, so
     /// the row does not fill with categories the user never touches.
@@ -51,6 +52,12 @@ struct TransactionListView: View {
             guard !rows.isEmpty else { return nil }
             return (section.day, rows.reduce(0) { $0 + $1.signedAmount }, rows)
         }
+    }
+
+    private func performPendingDelete() {
+        guard let pendingDelete else { return }
+        self.pendingDelete = nil
+        withAnimation { context.delete(pendingDelete) }
     }
 
     private func matches(_ transaction: Transaction) -> Bool {
@@ -111,8 +118,19 @@ struct TransactionListView: View {
                 }
             }
         }
-        .sheet(item: $editing) { transaction in
-            AddTransactionView(editing: transaction, onSaved: { editing = nil })
+        // Deletions are deferred to onDismiss: removing the model while the sheet is still
+        // animating out would leave the sheet rendering a deleted object.
+        .sheet(item: $editing, onDismiss: performPendingDelete) { transaction in
+            AddTransactionView(
+                editing: transaction,
+                onSaved: { editing = nil },
+                onRequestDelete: { pendingDelete = transaction }
+            )
+        }
+        .onChange(of: month) { _, _ in
+            // A category chip for a category this month has no rows in would otherwise stay
+            // selected and silently hide everything with no visible way back.
+            if !availableFilters.contains(filter) { filter = .all }
         }
     }
 
@@ -160,7 +178,9 @@ struct TransactionListView: View {
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
-                    Button("삭제", role: .destructive) { context.delete(transaction) }
+                    Button("삭제", role: .destructive) {
+                        withAnimation { context.delete(transaction) }
+                    }
                 }
             }
         }

@@ -33,11 +33,8 @@ targets:
         product: LedgerCore
       # Embeds the extensions into the app bundle. An extension ships inside its host app; it is
       # not installable on its own.
-      #
-      # BISECT: both are commented out to find out whether the export failure is theirs. Restore
-      # these two lines, the two target blocks below, and the two scheme entries together.
-      # - target: LedgerShare
-      # - target: LedgerWidget
+      - target: LedgerShare
+      - target: LedgerWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger
@@ -49,72 +46,72 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         TARGETED_DEVICE_FAMILY: "1"
 
-#   # 문자 앱에서 카드 승인 문자를 공유하면 뜨는 화면. 앱과 별개의 프로세스라 저장소를 App Group으로
-#   # 공유한다.
-#   LedgerShare:
-#     type: app-extension
-#     platform: iOS
-#     sources:
-#       - LedgerShare
-#       # The app files this target needs, listed one by one rather than by directory: everything
-#       # here is compiled into the extension as well, so the list is kept as short as it can be.
-#       # A new dependency in any of these files has to be added here too.
-#       - DavidLedger/Model/Transaction.swift
-#       - DavidLedger/Model/Budget.swift
-#       - DavidLedger/Model/CustomCategory.swift
-#       - DavidLedger/Model/LedgerStore.swift
-#       - DavidLedger/Support/AppGroup.swift
-#       - DavidLedger/Support/AppSettings.swift
-#       - DavidLedger/Support/CurrencyFormatter.swift
-#       - DavidLedger/Support/DesignSystem.swift
-#       - DavidLedger/Support/LedgerCoreAliases.swift
-#     dependencies:
-#       - package: LedgerCore
-#         product: LedgerCore
-#     settings:
-#       base:
-#         PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger.share
-#         INFOPLIST_FILE: LedgerShare/Info.plist
-#         CODE_SIGN_ENTITLEMENTS: LedgerShare/LedgerShare.entitlements
-#         ENABLE_USER_SCRIPT_SANDBOXING: YES
-#         TARGETED_DEVICE_FAMILY: "1"
+  # 문자 앱에서 카드 승인 문자를 공유하면 뜨는 화면. 앱과 별개의 프로세스라 저장소를 App Group으로
+  # 공유한다.
+  LedgerShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - LedgerShare
+      # The app files this target needs, listed one by one rather than by directory: everything
+      # here is compiled into the extension as well, so the list is kept as short as it can be.
+      # A new dependency in any of these files has to be added here too.
+      - DavidLedger/Model/Transaction.swift
+      - DavidLedger/Model/Budget.swift
+      - DavidLedger/Model/CustomCategory.swift
+      - DavidLedger/Model/LedgerStore.swift
+      - DavidLedger/Support/AppGroup.swift
+      - DavidLedger/Support/AppSettings.swift
+      - DavidLedger/Support/CurrencyFormatter.swift
+      - DavidLedger/Support/DesignSystem.swift
+      - DavidLedger/Support/LedgerCoreAliases.swift
+    dependencies:
+      - package: LedgerCore
+        product: LedgerCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger.share
+        INFOPLIST_FILE: LedgerShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LedgerShare/LedgerShare.entitlements
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        TARGETED_DEVICE_FAMILY: "1"
 
-#   # 홈 화면 위젯. 익스텐션이라 저장소는 마찬가지로 App Group에서 읽는다.
-#   LedgerWidget:
-#     type: app-extension
-#     platform: iOS
-#     sources:
-#       - LedgerWidget
-#       # Same rule as LedgerShare: listed file by file, because everything here is compiled into
-#       # the widget too.
-#       - DavidLedger/Model/Transaction.swift
-#       - DavidLedger/Model/Budget.swift
-#       - DavidLedger/Model/CustomCategory.swift
-#       - DavidLedger/Model/LedgerStore.swift
-#       - DavidLedger/Support/AppGroup.swift
-#       - DavidLedger/Support/AppSettings.swift
-#       - DavidLedger/Support/CurrencyFormatter.swift
-#       - DavidLedger/Support/DesignSystem.swift
-#       - DavidLedger/Support/LedgerCoreAliases.swift
-#       - DavidLedger/Support/MonthlyDigest.swift
-#     dependencies:
-#       - package: LedgerCore
-#         product: LedgerCore
-#     settings:
-#       base:
-#         PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger.widget
-#         INFOPLIST_FILE: LedgerWidget/Info.plist
-#         CODE_SIGN_ENTITLEMENTS: LedgerWidget/LedgerWidget.entitlements
-#         ENABLE_USER_SCRIPT_SANDBOXING: YES
-#         TARGETED_DEVICE_FAMILY: "1"
+  # 홈 화면 위젯. 익스텐션이라 저장소는 마찬가지로 App Group에서 읽는다.
+  LedgerWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - LedgerWidget
+      # Same rule as LedgerShare: listed file by file, because everything here is compiled into
+      # the widget too.
+      - DavidLedger/Model/Transaction.swift
+      - DavidLedger/Model/Budget.swift
+      - DavidLedger/Model/CustomCategory.swift
+      - DavidLedger/Model/LedgerStore.swift
+      - DavidLedger/Support/AppGroup.swift
+      - DavidLedger/Support/AppSettings.swift
+      - DavidLedger/Support/CurrencyFormatter.swift
+      - DavidLedger/Support/DesignSystem.swift
+      - DavidLedger/Support/LedgerCoreAliases.swift
+      - DavidLedger/Support/MonthlyDigest.swift
+    dependencies:
+      - package: LedgerCore
+        product: LedgerCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger.widget
+        INFOPLIST_FILE: LedgerWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LedgerWidget/LedgerWidget.entitlements
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        TARGETED_DEVICE_FAMILY: "1"
 
 schemes:
   DavidLedger:
     build:
       targets:
         DavidLedger: all
-        # LedgerShare: all
-        # LedgerWidget: all
+        LedgerShare: all
+        LedgerWidget: all
     run:
       config: Debug
     test:

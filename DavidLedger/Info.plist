@@ -28,6 +28,8 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>PrivacyPolicyURL</key>
+	<string>https://davidjeong1.github.io/budget/privacy.html</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>가계부를 열 때 잠금을 해제하는 데 사용합니다.</string>
 </dict>

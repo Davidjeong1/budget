@@ -14,9 +14,9 @@ final class AppSettings {
         static let accentColor = "settings.accentColor"
     }
 
-    /// The design's indigo. Needed as an explicit fallback because `UserDefaults.integer` returns 0
+    /// The design's gold. Needed as an explicit fallback because `UserDefaults.integer` returns 0
     /// for a missing key, and 0 is black — an unset preference would otherwise read as a choice.
-    static let defaultAccentColorValue = 0x4F46E5
+    static let defaultAccentColorValue = 0xC59B27
 
     private let defaults: UserDefaults
 

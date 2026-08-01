@@ -16,11 +16,12 @@ enum Tab: String, CaseIterable, Identifiable {
         }
     }
 
-    /// SF Symbols standing in for the design's icon set, which is not bundled.
+    /// SF Symbols standing in for the design's icon set, which is not bundled. The 내역 glyph is
+    /// the design's clock-with-arrow rather than a plain list.
     var symbolName: String {
         switch self {
         case .home: "house"
-        case .list: "list.bullet"
+        case .list: "clock.arrow.circlepath"
         case .add: "plus.circle"
         case .statistics: "chart.pie"
         case .budget: "wallet.bifold"
@@ -70,14 +71,14 @@ private struct TabBar: View {
                 Button {
                     selection = tab
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 2) {
                         Image(systemName: tab.symbolName)
-                            .font(.system(size: 18, weight: selection == tab ? .semibold : .regular))
+                            .font(.system(size: 16, weight: selection == tab ? .semibold : .regular))
                             .frame(width: 20, height: 20)
                         Text(tab.label)
-                            .font(selection == tab ? .system(size: 11, weight: .semibold) : .tabLabel)
+                            .font(.system(size: 10, weight: selection == tab ? .bold : .medium))
                     }
-                    .foregroundStyle(selection == tab ? Palette.accent : Palette.textTertiary)
+                    .foregroundStyle(selection == tab ? Palette.accent : Palette.textSecondary)
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
@@ -85,9 +86,11 @@ private struct TabBar: View {
                 .accessibilityAddTraits(selection == tab ? [.isSelected, .isButton] : .isButton)
             }
         }
-        .frame(height: 72)
-        .padding(.horizontal, 16)
-        .background(Palette.background)
+        // Padding rather than a fixed height, so the bar keeps its proportions above the home
+        // indicator that the system insets for.
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Palette.barBackground)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(Palette.border)

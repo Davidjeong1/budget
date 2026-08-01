@@ -170,9 +170,7 @@ struct CategoryManagerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .cardSurface(cornerRadius: 12)
     }
 
     private func create(_ draft: CategoryDraft) {
@@ -300,11 +298,7 @@ private struct CategoryEditorSheet: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.cardRadius).stroke(Palette.border, lineWidth: 1)
-        )
+        .cardSurface()
     }
 
     private var nameField: some View {
@@ -339,9 +333,7 @@ private struct CategoryEditorSheet: View {
                 modeButton(title: "수입", selected: isIncome) { isIncome = true }
             }
             .padding(4)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+            .cardSurface(cornerRadius: 12)
         }
     }
 

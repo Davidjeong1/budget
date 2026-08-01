@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 struct BudgetView: View {
@@ -42,19 +43,15 @@ struct BudgetView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(title: "예산 설정") {
-                HeaderIconButton(systemName: "plus") { sheet = .chooseCategory }
-            }
+            headerBar
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
-                    monthStepper
                     totalCard
                     categoryBudgets
                 }
                 .padding(.horizontal, Metrics.screenPadding)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
+                .padding(.vertical, 12)
             }
         }
         .sheet(item: $sheet) { destination in
@@ -64,7 +61,7 @@ struct BudgetView: View {
                     AmountEntryPage(
                         title: "총 목표 예산",
                         initialAmount: budget?.totalTarget ?? 0,
-                        onSave: { mutableBudget().totalTarget = $0 },
+                        onSave: { mutableBudget().totalTarget = $0; reloadWidget() },
                         onClose: { sheet = nil }
                     )
                 }
@@ -81,7 +78,7 @@ struct BudgetView: View {
                         AmountEntryPage(
                             title: "\(catalog.category(forRaw: raw).label) 예산",
                             initialAmount: budget?.target(forRaw: raw) ?? 0,
-                            onSave: { mutableBudget().setTarget($0, forRaw: raw) },
+                            onSave: { mutableBudget().setTarget($0, forRaw: raw); reloadWidget() },
                             onClose: { sheet = nil },
                             showsCancel: false
                         )
@@ -93,7 +90,7 @@ struct BudgetView: View {
                     AmountEntryPage(
                         title: "\(catalog.category(forRaw: raw).label) 예산",
                         initialAmount: budget?.target(forRaw: raw) ?? 0,
-                        onSave: { mutableBudget().setTarget($0, forRaw: raw) },
+                        onSave: { mutableBudget().setTarget($0, forRaw: raw); reloadWidget() },
                         onClose: { sheet = nil }
                     )
                 }
@@ -102,55 +99,45 @@ struct BudgetView: View {
         }
     }
 
-    private var monthStepper: some View {
-        HStack {
-            Button { month = month.previous } label: {
-                Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
+    private var headerBar: some View {
+        ScreenTitleBar(title: "예산 설정", month: $month) {
+            HeaderIconButton(systemName: "plus", label: "카테고리 예산 추가") {
+                sheet = .chooseCategory
             }
-            .buttonStyle(.plain)
-            Spacer()
-            Text(month.title).font(.system(size: 14, weight: .semibold))
-            Spacer()
-            Button { month = month.next } label: {
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
-            }
-            .buttonStyle(.plain)
         }
-        .foregroundStyle(Palette.textSecondary)
     }
 
     private var totalCard: some View {
         Button { sheet = .total } label: {
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Text("총 목표 예산")
-                            .font(.system(size: 14, weight: .medium))
+            VStack(alignment: .leading, spacing: 12) {
+                Text("\(month.monthLabel) 전체 예산 설정")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.textSecondary)
+
+                Text(CurrencyFormatter.string(from: budget?.totalTarget ?? 0))
+                    .font(.system(size: 28, weight: .heavy))
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+
+                if let target = budget?.totalTarget, target > 0 {
+                    HStack(spacing: 6) {
+                        Text("현재 사용률")
+                            .font(.system(size: 13))
                             .foregroundStyle(Palette.textSecondary)
-                        Spacer()
-                        if let target = budget?.totalTarget, target > 0 {
-                            Text("\(digest.budgetPercent(target: target))% 사용")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Palette.accent)
-                        }
+                        Text("\(digest.budgetPercent(target: target))%")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Palette.accent)
                     }
-
-                    Text(CurrencyFormatter.string(from: budget?.totalTarget ?? 0))
-                        .font(.cardAmount)
-                        .foregroundStyle(Palette.textPrimary)
-
-                    if let target = budget?.totalTarget, target > 0 {
-                        ProgressBar(
-                            ratio: digest.budgetUsage(target: target),
-                            color: Palette.accent
-                        )
-                    } else {
-                        Text("탭해서 이 달의 목표 예산을 설정하세요")
-                            .font(.captionSmall)
-                            .foregroundStyle(Palette.textTertiary)
-                    }
+                } else {
+                    Text("탭해서 이 달의 목표 예산을 설정하세요")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Palette.textTertiary)
                 }
             }
+            .padding(Metrics.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
         }
         .buttonStyle(.plain)
     }
@@ -161,8 +148,10 @@ struct BudgetView: View {
         let budgeted = (budget?.budgetedRaws ?? [])
             .sorted { catalog.orderIndex(ofRaw: $0) < catalog.orderIndex(ofRaw: $1) }
 
-        return VStack(alignment: .leading, spacing: 16) {
-            SectionTitle(title: "카테고리별 예산")
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("카테고리별 예산")
+                .font(.sectionTitle)
+                .foregroundStyle(Palette.textPrimary)
 
             if budgeted.isEmpty {
                 EmptyStateView(
@@ -170,7 +159,7 @@ struct BudgetView: View {
                     message: "오른쪽 위 + 를 눌러 카테고리별 목표를 추가하세요."
                 )
             } else {
-                VStack(spacing: 14) {
+                VStack(spacing: 10) {
                     ForEach(budgeted, id: \.self) { raw in
                         categoryRow(raw)
                     }
@@ -185,44 +174,54 @@ struct BudgetView: View {
         let spent = digest.total(forRaw: raw)
         let ratio = target > 0 ? Double(spent) / Double(target) : 0
         let percent = Int((ratio * 100).rounded())
-        // Past 90% the figure turns red, matching how the design flags 82% and 96% differently.
+        // Past 90% the card turns red, matching how the design flags 83% and 96% differently.
         let isNearLimit = percent >= 90
+        let tint = isNearLimit ? Palette.expense : Palette.accent
 
         return Button { sheet = .category(raw) } label: {
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 10) {
-                        Image(systemName: category.symbolName)
-                            .font(.system(size: 14))
-                            .foregroundStyle(category.color)
-                            .frame(width: 20)
-                        Text(category.label)
-                            .font(.rowTitle)
-                            .foregroundStyle(Palette.textPrimary)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text("\(percent)%")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(isNearLimit ? Palette.expense : Palette.textSecondary)
-                            if isNearLimit {
-                                Circle().fill(Palette.expense).frame(width: 5, height: 5)
-                            }
-                        }
-                    }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Text(category.label)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(isNearLimit ? Palette.expense : Palette.textPrimary)
+                        .lineLimit(1)
 
-                    ProgressBar(ratio: ratio, color: category.color)
+                    Spacer(minLength: 8)
 
-                    HStack {
-                        Text("지출 \(CurrencyFormatter.string(from: spent))")
-                        Spacer()
-                        Text("목표 \(CurrencyFormatter.string(from: target))")
-                    }
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.textTertiary)
+                    Text(CurrencyFormatter.string(from: spent))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Palette.textPrimary)
+                    Text("/ \(CurrencyFormatter.string(from: target))")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Palette.textTertiary)
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+                ProgressBar(ratio: ratio, color: tint)
+
+                HStack {
+                    // The design labels this "남은 예산 여유" but prints the amount used, which is
+                    // what the bar shows too. Named for the figure that is actually there.
+                    Text(isNearLimit ? "남은 예산 얼마 남지 않음!" : "사용률")
+                        .font(.system(size: 11))
+                        .foregroundStyle(isNearLimit ? Palette.expense : Palette.textSecondary)
+                    Spacer()
+                    Text("\(percent)%")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(tint)
                 }
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
         }
         .buttonStyle(.plain)
+    }
+
+    /// The widget shows this month's usage, so a changed target has to reach it.
+    private func reloadWidget() {
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Creates the month's budget row on first write, so reading the screen never inserts one.
@@ -287,9 +286,7 @@ private struct CategoryBudgetPicker: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .cardSurface(cornerRadius: 12)
     }
 }
 
@@ -322,9 +319,7 @@ private struct AmountEntryPage: View {
                 .font(.system(size: 16))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+                .cardSurface(cornerRadius: 12)
                 .onChange(of: digits) { _, new in
                     let filtered = String(new.filter(\.isNumber).drop { $0 == "0" }.prefix(12))
                     if filtered != new { digits = filtered }

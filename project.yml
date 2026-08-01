@@ -31,14 +31,18 @@ targets:
     dependencies:
       - package: LedgerCore
         product: LedgerCore
-      # Embeds the extension into the app bundle. An extension ships inside its host app; it is
+      # Embeds the extensions into the app bundle. An extension ships inside its host app; it is
       # not installable on its own.
       - target: LedgerShare
+      - target: LedgerWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger
         INFOPLIST_FILE: DavidLedger/Info.plist
         CODE_SIGN_ENTITLEMENTS: DavidLedger/DavidLedger.entitlements
+        # Named explicitly rather than relying on the Xcode template default, which this project
+        # does not use — it builds from project.yml.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         TARGETED_DEVICE_FAMILY: "1"
 
@@ -72,12 +76,42 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         TARGETED_DEVICE_FAMILY: "1"
 
+  # 홈 화면 위젯. 익스텐션이라 저장소는 마찬가지로 App Group에서 읽는다.
+  LedgerWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - LedgerWidget
+      # Same rule as LedgerShare: listed file by file, because everything here is compiled into
+      # the widget too.
+      - DavidLedger/Model/Transaction.swift
+      - DavidLedger/Model/Budget.swift
+      - DavidLedger/Model/CustomCategory.swift
+      - DavidLedger/Model/LedgerStore.swift
+      - DavidLedger/Support/AppGroup.swift
+      - DavidLedger/Support/AppSettings.swift
+      - DavidLedger/Support/CurrencyFormatter.swift
+      - DavidLedger/Support/DesignSystem.swift
+      - DavidLedger/Support/LedgerCoreAliases.swift
+      - DavidLedger/Support/MonthlyDigest.swift
+    dependencies:
+      - package: LedgerCore
+        product: LedgerCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidjeong.ledger.widget
+        INFOPLIST_FILE: LedgerWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LedgerWidget/LedgerWidget.entitlements
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        TARGETED_DEVICE_FAMILY: "1"
+
 schemes:
   DavidLedger:
     build:
       targets:
         DavidLedger: all
         LedgerShare: all
+        LedgerWidget: all
     run:
       config: Debug
     test:

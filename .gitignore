@@ -11,3 +11,18 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 Package.resolved
+
+# fastlane run output — reports and the built artifacts, not the lanes themselves
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
+fastlane/README.md
+*.ipa
+*.dSYM.zip
+*.xcarchive
+build/
+
+# fastlane init drops these in; the lanes run fine on a Homebrew fastlane without bundler
+Gemfile
+Gemfile.lock
+vendor/bundle/

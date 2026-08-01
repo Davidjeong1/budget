@@ -43,51 +43,94 @@ extension Appearance {
     }
 }
 
-/// The design's raw hex values, named once here. The Figma file exposes no token variables, so the
-/// light values are lifted from the frames directly and everything else refers to them by name.
-///
-/// The design has no dark frames, so the dark values are derived: the greys are inverted about the
-/// same steps, and the two semantic colours are lightened enough to hold contrast on a dark surface.
+/// The design's raw hex values, named once here. The Figma file exposes no token variables, so
+/// these are lifted from the light and dark frames directly and everything else refers to them by
+/// name — which is why re-skinning the app to the new design is mostly this one type.
 enum Palette {
     /// The one colour the user picks. Computed rather than stored so that reading it inside a
     /// view's body registers with Observation and the screen redraws when the choice changes.
+    ///
+    /// The design uses a slightly lighter gold on dark (#D4A843) than on light (#C59B27), but a
+    /// chosen accent is a single value, so it is used as-is in both.
     static var accent: Color {
         Color(hex: UInt32(truncatingIfNeeded: AppSettings.shared.accentColorValue))
     }
 
-    /// The accents offered in 설정 → 화면, saturated enough to stay legible on both surfaces.
+    /// The accents offered in 설정 → 화면. The design's gold leads; the rest hold up against both
+    /// surfaces at the same weight.
     static let accentOptions: [UInt32] = [
-        0x4F46E5, 0x2563EB, 0x0891B2, 0x0D9488, 0x059669,
-        0xD97706, 0xEA580C, 0xDC2626, 0xDB2777, 0x7C3AED,
+        0xC59B27, 0xB4863A, 0x8C7A4B, 0x4F46E5, 0x2563EB,
+        0x0D9488, 0x059669, 0xEA580C, 0xDC2626, 0x7C3AED,
     ]
 
-    static let textPrimary = Color(light: 0x111827, dark: 0xF3F4F6)
-    static let textSecondary = Color(light: 0x4B5563, dark: 0xB4BAC4)
-    static let textTertiary = Color(light: 0x9CA3AF, dark: 0x868D99)
-    static let border = Color(light: 0xE5E7EB, dark: 0x2A2F38)
-    static let surface = Color(light: 0xF9FAFB, dark: 0x1A1D23)
-    static let income = Color(light: 0x10B981, dark: 0x34D399)
-    static let expense = Color(light: 0xEF4444, dark: 0xF87171)
-    static let background = Color(light: 0xFFFFFF, dark: 0x0F1115)
+    static let textPrimary = Color(light: 0x1A1A1A, dark: 0xF5F5F5)
+    static let textSecondary = Color(light: 0x666666, dark: 0x888888)
+    static let textTertiary = Color(light: 0x999999, dark: 0x888888)
+    static let border = Color(light: 0xEEEEEE, dark: 0x2A2A2A)
+    static let background = Color(light: 0xFFFFFF, dark: 0x121212)
+
+    /// Cards and rows sitting on the background.
+    static let surface = Color(light: 0xF8F9FA, dark: 0x1E1E1E)
+    /// Blocks sitting on a card — the 수입/지출 pair inside the summary. On light these go back to
+    /// white, so the nesting reads as raised rather than as another shade of grey.
+    static let surfaceRaised = Color(light: 0xFFFFFF, dark: 0x262626)
+    /// The unfilled part of a progress bar or chart bar. Distinct from `border`, which is a hairline.
+    static let track = Color(light: 0xE2E8F0, dark: 0x2A2A2A)
+    /// The tab bar, which stays white on light while the cards around it do not.
+    static let barBackground = Color(light: 0xFFFFFF, dark: 0x1E1E1E)
+
+    /// Ranked shades of the accent, for charts. The redesign colours a breakdown by rank rather
+    /// than by category — one hue stepped lighter and darker — so a donut and its legend stay
+    /// readable however many slices there are.
+    static func accentShade(_ rank: Int) -> Color {
+        // Reproduces the design's three steps (#C59B27, #E0B354, #9E7B26) and carries on from there.
+        let steps: [Double] = [0, 0.28, -0.2, 0.52, -0.38, 0.14]
+        return Color(
+            hex: blend(
+                UInt32(truncatingIfNeeded: AppSettings.shared.accentColorValue),
+                towards: steps[rank % steps.count]
+            )
+        )
+    }
+
+    /// Positive mixes towards white, negative towards black.
+    private static func blend(_ hex: UInt32, towards amount: Double) -> UInt32 {
+        func channel(_ shift: UInt32) -> UInt32 {
+            let value = Double((hex >> shift) & 0xFF)
+            let mixed = amount >= 0 ? value + (255 - value) * amount : value * (1 + amount)
+            return UInt32(min(max(mixed.rounded(), 0), 255))
+        }
+        return channel(16) << 16 | channel(8) << 8 | channel(0)
+    }
+
+    static let income = Color(light: 0x4CAF50, dark: 0x4CAF50)
+    /// Only the over-budget warnings are red now. Spending itself is not: an expense row prints
+    /// in `textPrimary` and the month's total in the accent.
+    static let expense = Color(light: 0xEF5350, dark: 0xEF5350)
 }
 
 enum Metrics {
     /// Every screen body is inset by this much; the design uses it on all six frames.
-    static let screenPadding: CGFloat = 24
+    static let screenPadding: CGFloat = 20
     static let cardRadius: CGFloat = 16
     static let cardPadding: CGFloat = 20
-    static let sectionSpacing: CGFloat = 28
+    /// Sections carry 12pt of their own padding top and bottom, so this is the gap between them.
+    static let sectionSpacing: CGFloat = 24
     static let rowSpacing: CGFloat = 12
+    /// Rows and the blocks inside a card, which are rounded less than the cards themselves.
+    static let rowRadius: CGFloat = 12
 }
 
 extension Font {
     // The design specifies Pretendard, which is not bundled here, so these map onto the system
     // face at the same sizes and weights. Dropping in Pretendard later means changing only this.
+    /// The wordmark on the home screen.
+    static let appTitle = Font.system(size: 24, weight: .black)
     static let screenTitle = Font.system(size: 18, weight: .bold)
-    static let cardAmount = Font.system(size: 32, weight: .bold)
-    static let sectionTitle = Font.system(size: 16, weight: .bold)
+    static let cardAmount = Font.system(size: 32, weight: .heavy)
+    static let sectionTitle = Font.system(size: 15, weight: .bold)
     static let rowTitle = Font.system(size: 14, weight: .semibold)
-    static let rowAmount = Font.system(size: 14, weight: .semibold)
+    static let rowAmount = Font.system(size: 14, weight: .bold)
     static let bodyValue = Font.system(size: 16, weight: .semibold)
     // Not named `caption`: that would shadow SwiftUI's own `Font.caption`, and every `.font(.caption)`
     // in the app would silently become a fixed 13pt.

@@ -13,7 +13,11 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    # DEVELOPMENT_TEAM is deliberately unset — select your team in Xcode's Signing & Capabilities.
+    # Xcode Cloud's export step runs with the developer portal blocked
+    # (DVTPortalRequest.Endpoint=http://localhost:666/), so it cannot look a team up on the fly —
+    # the team has to already be in the build settings or every export fails with exit code 70.
+    # Locally this just preselects the team that Signing & Capabilities would otherwise ask for.
+    DEVELOPMENT_TEAM: SS447UT9GU
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"

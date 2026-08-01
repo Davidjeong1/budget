@@ -237,13 +237,14 @@ struct SettingsView: View {
                     .foregroundStyle(Palette.textTertiary)
             }
 
-            Link(
-                "개인정보 처리방침",
-                destination: URL(string: "https://davidjeong1.github.io/budget/privacy.html")!
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(Palette.textTertiary)
-            .underline()
+            // Absent when the bundle carries no address, rather than showing a link that goes
+            // nowhere.
+            if let privacyPolicy = AppLinks.privacyPolicy {
+                Link("개인정보 처리방침", destination: privacyPolicy)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.textTertiary)
+                    .underline()
+            }
 
             Text("기록한 내역은 이 기기 안에만 저장됩니다. 외부로 전송되지 않으며, 앱을 삭제하면 함께 지워집니다.")
                 .font(.system(size: 11))

@@ -74,13 +74,14 @@ struct TodayEntry: TimelineEntry {
 }
 
 struct TodayProvider: TimelineProvider {
-    func placeholder(in context: Context) -> TodayEntry { .placeholder }
+    // The `in` labels are required by TimelineProvider; only getSnapshot reads its context.
+    func placeholder(in _: Context) -> TodayEntry { .placeholder }
 
     func getSnapshot(in context: Context, completion: @escaping (TodayEntry) -> Void) {
         completion(context.isPreview ? .placeholder : .current())
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
+    func getTimeline(in _: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
         // Refreshed at midnight because today's figure resets then. Every other change comes from
         // the app or the share extension saving a row, which reloads the timeline directly.
         let midnight = Calendar.current.startOfDay(for: .now.addingTimeInterval(24 * 60 * 60))

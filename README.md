@@ -10,18 +10,23 @@
 | 내역 | 일자별 그룹, 전체/지출/수입/카테고리 필터, 사용처·메모 검색, 탭하여 수정 |
 | 추가 | 큰 금액 입력, 지출·수입 전환, 카테고리 선택, 날짜, 메모 |
 | 통계 | 카테고리별 도넛 차트(상위 4개 + 기타), 가장 많이 쓴 카테고리 3개 |
-| 예산 | 월 총 목표 예산과 카테고리별 목표, 사용률 막대 |
-| 설정 | 알림·생체 인증, CSV 내보내기, 버전 정보 |
+| 예산 | 월 총 목표 예산과 카테고리별 목표(카테고리를 골라 설정), 사용률 막대 |
+| 설정 | 화면 모드·강조 색, 알림·생체 인증, 카테고리 관리, CSV 내보내기, 버전 정보 |
 
 모든 화면은 상단의 월 이동 컨트롤을 공유하며, 같은 달을 함께 바라봅니다.
 
 ## 기능
 
 - **수동 입력** — 사용처를 입력하면 카테고리를 추정해 미리 선택해 줍니다(`MerchantCategoryClassifier`). 직접 고르면 추정이 더 이상 개입하지 않습니다.
+- **사용자 카테고리** — 기본 8개 외에 이름·아이콘·색을 직접 정한 카테고리를 추가할 수 있습니다. 삭제는 보관 방식이라 이미 기록된 내역은 원래 이름과 색 그대로 남고, 새 내역에서만 선택 목록에서 빠집니다.
 - **월별 예산** — 총 목표와 카테고리별 목표를 달마다 따로 저장합니다. 90%를 넘긴 카테고리는 빨간색으로 표시됩니다.
+- **예산 소진 예측** — 지금까지의 지출 속도로 홈에 "이 속도면 24일에 예산을 다 씁니다"를 표시합니다. 90% 알림은 이미 쓴 뒤에 오지만, 이건 아직 바꿀 수 있을 때 알려 줍니다.
+- **문자 공유로 기록** — 문자 앱에서 승인 문자를 공유하면 공유 시트에 다비드 가계부가 뜹니다. 금액·사용처·카테고리를 확인하고 저장하면 앱을 열지 않고 기록됩니다.
+- **문자로 채우기** — 카드 승인 문자를 붙여넣으면 금액·사용처·시각을 읽어 추가 화면을 채웁니다. 사용처가 기존 카테고리 추정으로 이어져 분류까지 자동으로 됩니다. 읽은 내용을 보여준 뒤 적용하므로 잘못 읽으면 눈에 보입니다.
 - **매일 저녁 알림** — 21시에 기록을 상기시키는 로컬 알림.
 - **예산 초과 알림** — 저장 시점에 이번 달 예산의 90%를 넘으면 한 번 알립니다.
 - **생체 인증 잠금** — Face ID 또는 기기 암호로 앱을 잠급니다. 백그라운드로 나가면 다시 잠기며, 사용할 수 없는 기기에서는 토글이 자동으로 꺼집니다.
+- **다크 모드** — 설정에서 시스템·라이트·다크 중 고릅니다. 기본값은 시스템이라 첫 실행 시 기기 설정을 따릅니다. 강조 색도 10가지 중에서 따로 지정할 수 있습니다.
 - **CSV 내보내기** — 공유 시트로 전체 내역을 내보냅니다. Excel에서 한글이 깨지지 않도록 BOM을 붙입니다.
 
 ## 자동 인식을 넣지 않은 이유
@@ -30,6 +35,12 @@
 iOS에는 안드로이드의 `RECEIVE_SMS`나 `NotificationListenerService`에 해당하는 API가 없고,
 `ILMessageFilterExtension`은 모르는 번호의 스팸 차단 전용이라 내용을 앱에 저장할 수 없습니다.
 
+앱이 문자를 **스스로 읽는** 것은 불가능하지만 사용자가 **건네주는** 것은 가능하므로, 그 경로를 두 가지
+넣었습니다(둘 다 `PaymentMessageParser`를 씁니다).
+
+- **공유** — 문자에서 텍스트를 선택해 공유 → 다비드 가계부. 앱을 열지 않고 두 탭이면 끝납니다(`LedgerShare`).
+- **붙여넣기** — 복사한 뒤 추가 화면의 '문자로 채우기'. 공유가 뜨지 않는 앱에서 쓰는 경로입니다.
+
 ## 프로젝트 구조
 
 ```
@@ -37,22 +48,32 @@ budget/
 ├── Package.swift              LedgerCore 스위프트 패키지
 ├── Sources/LedgerCore/        UI 의존성 없는 도메인 로직
 │   ├── Category               분류 항목 — 라벨, SF Symbol, 색상
-│   └── MerchantCategoryClassifier  사용처 이름 → 분류 추정
+│   ├── MerchantCategoryClassifier  사용처 이름 → 분류 추정
+│   ├── BudgetPace             지출 속도 → 예산 소진 예측
+│   └── PaymentMessageParser   카드 승인 문자 → 금액·사용처·시각
 ├── Tests/LedgerCoreTests/     단위 테스트
 ├── DavidLedger/
-│   ├── Model/                 Transaction, Budget (SwiftData), MonthRange
-│   ├── Support/               DesignSystem, MonthlyDigest, 알림, CSV, 설정
+│   ├── Model/                 Transaction, Budget, CustomCategory (SwiftData), MonthRange
+│   ├── Support/               DesignSystem, CategoryCatalog, MonthlyDigest, 알림, CSV, 설정
 │   └── Views/                 6개 화면 + 공용 컴포넌트 + 잠금 화면
+├── LedgerShare/               공유 익스텐션 — 문자 앱에서 바로 기록
 └── project.yml                XcodeGen 스펙
 ```
 
 `MonthlyDigest`가 월별 집계를 한곳에서 계산하므로 홈의 합계, 통계의 도넛, 예산의 막대가 서로 어긋나지 않습니다.
+
+익스텐션은 앱과 **별개의 프로세스**라 자기 샌드박스만 봅니다. 그래서 SwiftData 저장소와 설정을 App Group
+(`group.com.davidjeong.ledger`)에 두고 양쪽이 같은 것을 읽습니다. 익스텐션이 컴파일하는 앱 파일은
+`project.yml`에 하나씩 나열되어 있습니다 — 디렉터리 통째로 넣으면 익스텐션에서 쓸 수 없는 코드까지 끌려옵니다.
 
 ## 디자인 반영 시 유의사항
 
 - **아이콘**: 디자인의 아이콘 세트를 번들에 넣지 못해 SF Symbols로 대체했습니다. 원본 에셋을 쓰려면 `Category.symbolName`과 `Tab.symbolName`을 이미지 애셋으로 교체하세요.
 - **폰트**: 디자인은 Pretendard를 쓰지만 번들되어 있지 않아 시스템 폰트에 같은 크기·굵기로 매핑했습니다. `DesignSystem.swift`의 `Font` 확장만 바꾸면 교체됩니다.
 - **색상**: Figma에 토큰 변수가 없어 원시 hex를 `Palette`에 한 번만 정의하고 나머지는 이름으로 참조합니다.
+  디자인에 다크 프레임이 없어 다크 값은 파생시켰습니다 — 회색 계열은 같은 단계로 뒤집고, 수입·지출 색은
+  어두운 배경에서 대비가 유지되도록 밝혔습니다. 강조 색만 사용자가 고르므로 `Palette.accent`는 상수가 아니라
+  `AppSettings`를 읽는 계산 속성입니다.
 - **상태 표시줄·홈 인디케이터**: 디자인에 그려진 것은 OS가 그리는 영역이라 앱에서는 재현하지 않았습니다.
 - 설정 화면의 계정 카드는 이 앱에 계정 개념이 없어, 가상의 사용자를 만들지 않고 가계부 정보를 보여주도록 바꿨습니다.
 - 설정의 '연결된 은행 및 카드'는 iOS에서 구현이 불가능해 제외했습니다.
@@ -67,7 +88,15 @@ xcodegen generate
 open DavidLedger.xcodeproj
 ```
 
-Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 됩니다.
+Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 됩니다. 타겟이 둘(`DavidLedger`,
+`LedgerShare`)이므로 **양쪽 모두** 팀을 선택해야 합니다.
+
+**App Groups**는 유료 개발자 프로그램에서만 쓸 수 있습니다. 서명 후 두 타겟의 Signing & Capabilities에
+`group.com.davidjeong.ledger`가 체크되어 있는지 확인하세요. 없으면 저장소를 열지 못해 앱이 메모리 모드로
+떨어지고, 기록한 내역이 남지 않습니다.
+
+Xcode Cloud도 같은 이유로 클론 직후에는 프로젝트가 없으므로, `ci_scripts/ci_post_clone.sh`가
+`xcodegen generate`를 대신 실행합니다.
 
 도메인 로직만 검증하려면:
 
@@ -77,10 +106,17 @@ swift test
 
 ## 검증 상태
 
-`Tests/LedgerCoreTests`의 테스트 10건(단언 24개)은 macOS에서 **전부 통과했습니다.**
+`Tests/LedgerCoreTests`의 테스트 28건(단언 61개)은 macOS에서 **전부 통과했습니다.**
 
 ```
-Executed 10 tests, with 0 failures (0 unexpected) in 0.002 seconds
+Executed 28 tests, with 0 failures (0 unexpected) in 0.003 seconds
+```
+
+앱과 공유 익스텐션 두 타겟 모두 시뮬레이터 SDK로 컴파일됩니다:
+
+```bash
+xcodebuild -project DavidLedger.xcodeproj -target DavidLedger \
+  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
 ```
 
 `swift test`는 XCTest를 포함하지 않는 Command Line Tools 툴체인에서는 `unable to resolve module
@@ -91,6 +127,6 @@ dependency: 'XCTest'`로 실패합니다. `xcode-select -p`가 `/Library/Develop
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ```
 
-**iOS 앱 자체의 빌드와 실행은 아직 검증되지 않았습니다.** 위 테스트가 다루는 범위는 UI 의존성이 없는
-`Sources/LedgerCore`(분류 추정과 `Category`)뿐이고, `DavidLedger/`의 SwiftUI 화면과 SwiftData 모델은
-포함되지 않습니다.
+위 테스트가 다루는 범위는 UI 의존성이 없는 `Sources/LedgerCore`(분류 추정, 예산 예측, 문자 파싱)뿐입니다.
+**`DavidLedger/`의 SwiftUI 화면과 SwiftData 모델을 검증하는 자동화된 테스트는 없으므로**, 화면 동작은
+시뮬레이터나 실기기에서 직접 확인해야 합니다.

@@ -11,7 +11,13 @@ enum LedgerStore {
     private(set) static var isEphemeral = false
 
     private static func makeContainer() -> ModelContainer {
-        if let container = try? ModelContainer(for: Transaction.self, Budget.self) {
+        // In the app group container rather than the app's own, so the share extension — a separate
+        // process with a separate sandbox — writes to the same ledger.
+        if let url = AppGroup.storeURL,
+           let container = try? ModelContainer(
+               for: Transaction.self, Budget.self, CustomCategory.self,
+               configurations: ModelConfiguration(url: url)
+           ) {
             return container
         }
         // A corrupt store should not be a launch crash: fall back to memory so the ledger still
@@ -19,7 +25,7 @@ enum LedgerStore {
         isEphemeral = true
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         guard let fallback = try? ModelContainer(
-            for: Transaction.self, Budget.self,
+            for: Transaction.self, Budget.self, CustomCategory.self,
             configurations: configuration
         ) else {
             fatalError("가계부 저장소를 열지 못했습니다.")

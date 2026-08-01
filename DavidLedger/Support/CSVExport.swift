@@ -21,7 +21,9 @@ struct LedgerCSV: Transferable, Identifiable {
         return url
     }
 
-    init(transactions: [Transaction], now: Date = .now) {
+    /// `catalog` resolves each row's category key, so a transaction filed under one of the user's
+    /// own categories exports that category's name rather than its opaque key.
+    init(transactions: [Transaction], catalog: CategoryCatalog, now: Date = .now) {
         let formatter = ISO8601DateFormatter()
         // Defaults to UTC, which would export a 08:00 KST payment as the previous calendar day and
         // quietly break any month-based analysis done on the file.
@@ -35,7 +37,7 @@ struct LedgerCSV: Transferable, Identifiable {
                     formatter.string(from: transaction.occurredAt),
                     transaction.isExpense ? "지출" : "수입",
                     Self.escape(transaction.merchant),
-                    transaction.category.label,
+                    Self.escape(catalog.category(forRaw: transaction.categoryRaw).label),
                     String(transaction.amount),
                     Self.escape(transaction.memo),
                 ].joined(separator: ",")

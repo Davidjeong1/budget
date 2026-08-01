@@ -9,6 +9,9 @@ struct HomeView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
     @Query private var budgets: [Budget]
+    @Query private var customCategories: [CustomCategory]
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var digest: MonthlyDigest {
         MonthlyDigest(month: month, allTransactions: allTransactions)
@@ -78,6 +81,15 @@ struct HomeView: View {
                         Text("남은 예산 \(CurrencyFormatter.string(from: max(budgetTarget - digest.expenseTotal, 0)))")
                             .font(.system(size: 13))
                             .foregroundStyle(Palette.textTertiary)
+
+                        // The 90% alert arrives after the money is spent. This says the same thing
+                        // while there is still a month left to change it.
+                        if let pace = digest.pace(target: budgetTarget) {
+                            Text(paceMessage(pace))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(paceColor(pace))
+                                .padding(.top, 2)
+                        }
                     } else {
                         Text("예산을 설정하면 남은 금액이 표시됩니다")
                             .font(.system(size: 13))
@@ -92,6 +104,24 @@ struct HomeView: View {
                     amountColumn(title: "지출", amount: digest.expenseTotal, color: Palette.expense)
                 }
             }
+        }
+    }
+
+    private func paceMessage(_ pace: BudgetPace) -> String {
+        switch pace {
+        case .exceeded:
+            "이번 달 예산을 이미 넘었습니다"
+        case .runsOut(let day, _):
+            "이 속도면 \(day)일에 예산을 다 씁니다"
+        case .withinBudget(let projected):
+            "이 속도면 월말에 \(CurrencyFormatter.string(from: projected)) 예상"
+        }
+    }
+
+    private func paceColor(_ pace: BudgetPace) -> Color {
+        switch pace {
+        case .exceeded, .runsOut: Palette.expense
+        case .withinBudget: Palette.textTertiary
         }
     }
 
@@ -146,7 +176,10 @@ struct HomeView: View {
             } else {
                 VStack(spacing: Metrics.rowSpacing) {
                     ForEach(digest.recent) { transaction in
-                        CompactTransactionRow(transaction: transaction)
+                        CompactTransactionRow(
+                            transaction: transaction,
+                            category: catalog.category(forRaw: transaction.categoryRaw)
+                        )
                     }
                 }
             }

@@ -7,6 +7,7 @@ struct TransactionListView: View {
 
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
+    @Query private var customCategories: [CustomCategory]
 
     @State private var filter: ListFilter = .all
     @State private var searchText = ""
@@ -20,15 +21,18 @@ struct TransactionListView: View {
         case all
         case expense
         case income
-        case category(Category)
+        /// The stored key, so a chip keeps working across a rename of the user's own category.
+        case category(String)
+    }
 
-        var label: String {
-            switch self {
-            case .all: "전체"
-            case .expense: "지출"
-            case .income: "수입"
-            case .category(let category): category.label
-            }
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
+
+    private func label(for filter: ListFilter) -> String {
+        switch filter {
+        case .all: "전체"
+        case .expense: "지출"
+        case .income: "수입"
+        case .category(let raw): catalog.category(forRaw: raw).label
         }
     }
 
@@ -38,11 +42,11 @@ struct TransactionListView: View {
 
     private var availableFilters: [ListFilter] {
         let used = digest.transactions
-            .map(\.category)
-            .reduce(into: [Category]()) { result, category in
-                if !result.contains(category) { result.append(category) }
+            .map(\.categoryRaw)
+            .reduce(into: [String]()) { result, raw in
+                if !result.contains(raw) { result.append(raw) }
             }
-            .sorted { Category.allCases.firstIndex(of: $0)! < Category.allCases.firstIndex(of: $1)! }
+            .sorted { catalog.orderIndex(ofRaw: $0) < catalog.orderIndex(ofRaw: $1) }
         return [.all, .expense, .income] + used.map { ListFilter.category($0) }
     }
 
@@ -66,7 +70,7 @@ struct TransactionListView: View {
         case .all: passesFilter = true
         case .expense: passesFilter = transaction.isExpense
         case .income: passesFilter = !transaction.isExpense
-        case .category(let category): passesFilter = transaction.category == category
+        case .category(let raw): passesFilter = transaction.categoryRaw == raw
         }
         guard passesFilter else { return false }
 
@@ -142,9 +146,11 @@ struct TransactionListView: View {
                     Button {
                         filter = option
                     } label: {
-                        Text(option.label)
+                        Text(label(for: option))
                             .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                            .foregroundStyle(isSelected ? Color.white : Palette.textSecondary)
+                            // Not white: the selected chip's fill is `textPrimary`, which is nearly
+                            // white in dark mode and would swallow white text.
+                            .foregroundStyle(isSelected ? Palette.background : Palette.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(isSelected ? Palette.textPrimary : Palette.surface)
@@ -174,7 +180,10 @@ struct TransactionListView: View {
 
             ForEach(section.rows) { transaction in
                 Button { editing = transaction } label: {
-                    TransactionRow(transaction: transaction)
+                    TransactionRow(
+                        transaction: transaction,
+                        category: catalog.category(forRaw: transaction.categoryRaw)
+                    )
                 }
                 .buttonStyle(.plain)
                 .contextMenu {

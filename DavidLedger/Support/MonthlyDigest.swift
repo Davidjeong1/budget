@@ -22,18 +22,21 @@ struct MonthlyDigest {
         transactions.filter { !$0.isExpense }.reduce(0) { $0 + $1.amount }
     }
 
-    /// Spend per category, largest first. Categories that net to zero or less are dropped so they
-    /// do not render as empty slices or bars.
-    var categoryTotals: [(category: Category, total: Int)] {
-        Dictionary(grouping: transactions.filter(\.isExpense), by: \.category)
-            .map { (category: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }) }
+    /// Spend per category key, largest first. Categories that net to zero or less are dropped so
+    /// they do not render as empty slices or bars.
+    ///
+    /// Keyed by the raw value rather than a resolved category: this type has no view context, and
+    /// a key may name one of the user's own categories. Callers resolve through `CategoryCatalog`.
+    var categoryTotals: [(raw: String, total: Int)] {
+        Dictionary(grouping: transactions.filter(\.isExpense), by: \.categoryRaw)
+            .map { (raw: $0.key, total: $0.value.reduce(0) { $0 + $1.amount }) }
             .filter { $0.total > 0 }
             .sorted { $0.total > $1.total }
     }
 
-    func total(for category: Category) -> Int {
+    func total(forRaw raw: String) -> Int {
         transactions
-            .filter { $0.isExpense && $0.category == category }
+            .filter { $0.isExpense && $0.categoryRaw == raw }
             .reduce(0) { $0 + $1.amount }
     }
 
@@ -69,6 +72,21 @@ struct MonthlyDigest {
     func budgetUsage(target: Int) -> Double {
         guard target > 0 else { return 0 }
         return min(max(Double(expenseTotal) / Double(target), 0), 1)
+    }
+
+    /// Where this month lands if spending keeps its current pace.
+    ///
+    /// nil for any month other than the one running: projecting a finished month says nothing, and
+    /// projecting a future one has nothing to project from.
+    func pace(target: Int, now: Date = .now, calendar: Calendar = .current) -> BudgetPace? {
+        guard month.contains(now) else { return nil }
+        let totalDays = calendar.range(of: .day, in: .month, for: month.start)?.count ?? 30
+        return BudgetPace.projected(
+            spent: expenseTotal,
+            target: target,
+            elapsedDays: calendar.component(.day, from: now),
+            totalDays: totalDays
+        )
     }
 
     func budgetPercent(target: Int) -> Int {

@@ -6,27 +6,35 @@ struct StatisticsView: View {
     @Binding var month: MonthRange
 
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
+    @Query private var customCategories: [CustomCategory]
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var digest: MonthlyDigest {
         MonthlyDigest(month: month, allTransactions: allTransactions)
     }
 
+    /// Spend per category with the stored keys resolved for display.
+    private var resolvedTotals: [(category: LedgerCategory, total: Int)] {
+        digest.categoryTotals.map { (category: catalog.category(forRaw: $0.raw), total: $0.total) }
+    }
+
     /// The donut shows the top four categories and rolls the rest into 기타, matching the design's
     /// four-slice legend rather than drawing a sliver per category.
-    private var slices: [(category: Category, total: Int, share: Double)] {
-        let totals = digest.categoryTotals
+    private var slices: [(category: LedgerCategory, total: Int, share: Double)] {
+        let totals = resolvedTotals
         guard !totals.isEmpty else { return [] }
         let sum = totals.reduce(0) { $0 + $1.total }
         guard sum > 0 else { return [] }
 
-        let leading = totals.prefix(4)
+        let etc = LedgerCategory(builtin: .etc)
         let remainder = totals.dropFirst(4).reduce(0) { $0 + $1.total }
-        var entries = leading.map { (category: $0.category, total: $0.total) }
+        var entries = Array(totals.prefix(4))
         if remainder > 0 {
-            if let index = entries.firstIndex(where: { $0.category == .etc }) {
+            if let index = entries.firstIndex(where: { $0.category == etc }) {
                 entries[index].total += remainder
             } else {
-                entries.append((category: .etc, total: remainder))
+                entries.append((category: etc, total: remainder))
             }
         }
         return entries.map { ($0.category, $0.total, Double($0.total) / Double(sum)) }
@@ -109,7 +117,7 @@ struct StatisticsView: View {
     }
 
     private var topCategories: some View {
-        let totals = digest.categoryTotals
+        let totals = resolvedTotals
         let maximum = max(totals.first?.total ?? 1, 1)
 
         return VStack(alignment: .leading, spacing: 16) {

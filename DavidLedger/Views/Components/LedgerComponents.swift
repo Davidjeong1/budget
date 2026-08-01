@@ -105,7 +105,7 @@ struct ProgressBar: View {
 
 /// The circular category badge on list rows and category chips.
 struct CategoryIcon: View {
-    let category: Category
+    let category: LedgerCategory
     var size: CGFloat = 36
 
     var body: some View {
@@ -121,16 +121,18 @@ struct CategoryIcon: View {
 /// A transaction row with the category badge, used on the 내역 screen.
 struct TransactionRow: View {
     let transaction: Transaction
+    /// Resolved by the caller, which is the level that holds the catalog.
+    let category: LedgerCategory
 
     var body: some View {
         HStack(spacing: Metrics.rowSpacing) {
-            CategoryIcon(category: transaction.category)
+            CategoryIcon(category: category)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(transaction.merchant)
                     .font(.rowTitle)
                     .foregroundStyle(Palette.textPrimary)
-                Text("\(transaction.category.label) · \(transaction.occurredAt.timeLabel)")
+                Text("\(category.label) · \(transaction.occurredAt.timeLabel)")
                     .font(.captionSmall)
                     .foregroundStyle(Palette.textTertiary)
             }
@@ -148,11 +150,12 @@ struct TransactionRow: View {
 /// The compact dashboard row: a coloured dot instead of a badge, and a relative day label.
 struct CompactTransactionRow: View {
     let transaction: Transaction
+    let category: LedgerCategory
 
     var body: some View {
         HStack(spacing: Metrics.rowSpacing) {
             Circle()
-                .fill(transaction.category.color)
+                .fill(category.color)
                 .frame(width: 8, height: 8)
 
             VStack(alignment: .leading, spacing: 2) {

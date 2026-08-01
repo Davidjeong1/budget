@@ -16,6 +16,8 @@ struct DavidLedgerApp: App {
                     RootView()
                 }
             }
+            // Applied at the scene root so sheets and the lock screen follow the choice too.
+            .preferredColorScheme(settings.appearance.colorScheme)
             // Turning the lock off while locked must not leave the user stuck behind it.
             .onChange(of: settings.biometricLockEnabled) { _, enabled in
                 if !enabled { isUnlocked = true }

@@ -5,10 +5,14 @@ import LedgerCore
 
 struct SettingsView: View {
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
+    @Query private var customCategories: [CustomCategory]
 
     @State private var settings = AppSettings.shared
     @State private var biometricUnavailableMessage: String?
     @State private var exportedCSV: LedgerCSV?
+    @State private var isManagingCategories = false
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -22,7 +26,9 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
                     ledgerCard
+                    appearanceGroup
                     notificationGroup
+                    categoryGroup
                     dataGroup
                     infoGroup
                 }
@@ -69,6 +75,81 @@ struct SettingsView: View {
         }
     }
 
+    private var appearanceGroup: some View {
+        SettingsGroup(title: "화면") {
+            settingsCard {
+                Text("화면 모드")
+                    .font(.rowTitle)
+                    .foregroundStyle(Palette.textPrimary)
+
+                HStack(spacing: 0) {
+                    ForEach(Appearance.allCases) { option in
+                        let selected = option == settings.appearance
+                        Button {
+                            settings.appearance = option
+                        } label: {
+                            Text(option.label)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(selected ? Palette.textPrimary : Palette.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 9)
+                                .background(selected ? Palette.background : Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
+                    }
+                }
+                .padding(3)
+                .background(Palette.border.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 11))
+            }
+
+            settingsCard {
+                Text("강조 색")
+                    .font(.rowTitle)
+                    .foregroundStyle(Palette.textPrimary)
+
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5),
+                    spacing: 12
+                ) {
+                    ForEach(Palette.accentOptions, id: \.self) { hex in
+                        let selected = Int(hex) == settings.accentColorValue
+                        Button {
+                            settings.accentColorValue = Int(hex)
+                        } label: {
+                            Circle()
+                                .fill(Color(hex: hex))
+                                .frame(height: 32)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Palette.textPrimary, lineWidth: selected ? 2 : 0)
+                                        .padding(-3)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(format: "#%06X", hex))
+                        .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
+                    }
+                }
+                .padding(.top, 2)
+            }
+        }
+    }
+
+    /// The bordered card the settings rows sit in, shared by the two panels above that hold a
+    /// control rather than a single labelled row.
+    private func settingsCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) { content() }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+    }
+
     private var notificationGroup: some View {
         SettingsGroup(title: "알림 및 보안") {
             SettingsToggleRow(title: "매일 저녁 소비 알림", isOn: $settings.dailyReminderEnabled)
@@ -98,12 +179,29 @@ struct SettingsView: View {
         }
     }
 
+    private var categoryGroup: some View {
+        SettingsGroup(title: "카테고리") {
+            Button {
+                isManagingCategories = true
+            } label: {
+                SettingsRowLabel(
+                    title: "카테고리 관리",
+                    value: "내 카테고리 \(catalog.activeCustoms.count)개"
+                )
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $isManagingCategories) {
+                CategoryManagerView()
+            }
+        }
+    }
+
     private var dataGroup: some View {
         SettingsGroup(title: "데이터") {
             // Built on demand rather than in `body`: eagerly joining the whole ledger into a
             // string on every view update would cost the same whether or not the user ever shares.
             Button {
-                exportedCSV = LedgerCSV(transactions: allTransactions)
+                exportedCSV = LedgerCSV(transactions: allTransactions, catalog: catalog)
             } label: {
                 SettingsRowLabel(title: "소비 데이터 내보내기", value: "CSV")
             }

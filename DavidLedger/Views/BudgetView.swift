@@ -8,22 +8,29 @@ struct BudgetView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Transaction.occurredAt, order: .reverse) private var allTransactions: [Transaction]
     @Query private var budgets: [Budget]
+    @Query private var customCategories: [CustomCategory]
 
     /// One sheet driver rather than two stacked `.sheet` modifiers, which SwiftUI has historically
     /// handled unreliably.
     private enum BudgetSheet: Identifiable {
         case total
-        case category(Category)
+        /// Pick which category to budget, then enter the amount without leaving the sheet.
+        case chooseCategory
+        /// Straight to the amount, for a row that already has a target.
+        case category(String)
 
         var id: String {
             switch self {
             case .total: "total"
-            case .category(let category): category.rawValue
+            case .chooseCategory: "choose"
+            case .category(let raw): raw
             }
         }
     }
 
     @State private var sheet: BudgetSheet?
+
+    private var catalog: CategoryCatalog { CategoryCatalog(customs: customCategories) }
 
     private var digest: MonthlyDigest {
         MonthlyDigest(month: month, allTransactions: allTransactions)
@@ -36,7 +43,7 @@ struct BudgetView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScreenHeader(title: "예산 설정") {
-                HeaderIconButton(systemName: "plus") { sheet = .category(nextUnbudgetedCategory()) }
+                HeaderIconButton(systemName: "plus") { sheet = .chooseCategory }
             }
 
             ScrollView {
@@ -53,19 +60,44 @@ struct BudgetView: View {
         .sheet(item: $sheet) { destination in
             switch destination {
             case .total:
-                AmountEntrySheet(
-                    title: "총 목표 예산",
-                    initialAmount: budget?.totalTarget ?? 0
-                ) { amount in
-                    mutableBudget().totalTarget = amount
+                NavigationStack {
+                    AmountEntryPage(
+                        title: "총 목표 예산",
+                        initialAmount: budget?.totalTarget ?? 0,
+                        onSave: { mutableBudget().totalTarget = $0 },
+                        onClose: { sheet = nil }
+                    )
                 }
-            case .category(let category):
-                AmountEntrySheet(
-                    title: "\(category.label) 예산",
-                    initialAmount: budget?.target(for: category) ?? 0
-                ) { amount in
-                    mutableBudget().setTarget(amount, for: category)
+                // .medium rather than a fixed height, which the number pad would cover.
+                .presentationDetents([.medium])
+
+            case .chooseCategory:
+                NavigationStack {
+                    CategoryBudgetPicker(
+                        categories: catalog.expenseChoices,
+                        targets: budget?.categoryTargets ?? [:]
+                    )
+                    .navigationDestination(for: String.self) { raw in
+                        AmountEntryPage(
+                            title: "\(catalog.category(forRaw: raw).label) 예산",
+                            initialAmount: budget?.target(forRaw: raw) ?? 0,
+                            onSave: { mutableBudget().setTarget($0, forRaw: raw) },
+                            onClose: { sheet = nil },
+                            showsCancel: false
+                        )
+                    }
                 }
+
+            case .category(let raw):
+                NavigationStack {
+                    AmountEntryPage(
+                        title: "\(catalog.category(forRaw: raw).label) 예산",
+                        initialAmount: budget?.target(forRaw: raw) ?? 0,
+                        onSave: { mutableBudget().setTarget($0, forRaw: raw) },
+                        onClose: { sheet = nil }
+                    )
+                }
+                .presentationDetents([.medium])
             }
         }
     }
@@ -124,7 +156,10 @@ struct BudgetView: View {
     }
 
     private var categoryBudgets: some View {
-        let budgeted = budget?.budgetedCategories ?? []
+        // Sorted here rather than in `Budget`: only the catalog knows where the user's own
+        // categories sit relative to the built-in ones.
+        let budgeted = (budget?.budgetedRaws ?? [])
+            .sorted { catalog.orderIndex(ofRaw: $0) < catalog.orderIndex(ofRaw: $1) }
 
         return VStack(alignment: .leading, spacing: 16) {
             SectionTitle(title: "카테고리별 예산")
@@ -136,23 +171,24 @@ struct BudgetView: View {
                 )
             } else {
                 VStack(spacing: 14) {
-                    ForEach(budgeted, id: \.self) { category in
-                        categoryRow(category)
+                    ForEach(budgeted, id: \.self) { raw in
+                        categoryRow(raw)
                     }
                 }
             }
         }
     }
 
-    private func categoryRow(_ category: Category) -> some View {
-        let target = budget?.target(for: category) ?? 0
-        let spent = digest.total(for: category)
+    private func categoryRow(_ raw: String) -> some View {
+        let category = catalog.category(forRaw: raw)
+        let target = budget?.target(forRaw: raw) ?? 0
+        let spent = digest.total(forRaw: raw)
         let ratio = target > 0 ? Double(spent) / Double(target) : 0
         let percent = Int((ratio * 100).rounded())
         // Past 90% the figure turns red, matching how the design flags 82% and 96% differently.
         let isNearLimit = percent >= 90
 
-        return Button { sheet = .category(category) } label: {
+        return Button { sheet = .category(raw) } label: {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
@@ -189,11 +225,6 @@ struct BudgetView: View {
         .buttonStyle(.plain)
     }
 
-    private func nextUnbudgetedCategory() -> Category {
-        let budgeted = Set(budget?.budgetedCategories ?? [])
-        return Category.expenseCases.first { !budgeted.contains($0) } ?? .etc
-    }
-
     /// Creates the month's budget row on first write, so reading the screen never inserts one.
     ///
     /// Goes through the store rather than the `@Query` array: that snapshot is stale immediately
@@ -207,64 +238,124 @@ struct BudgetView: View {
     }
 }
 
-/// A small sheet for entering a won amount, shared by the total and per-category budget rows.
-private struct AmountEntrySheet: View {
+
+/// The list the + button opens: every expense category, with the target it already has, so a
+/// category budget can be aimed at a chosen category rather than whichever one happened to be next.
+private struct CategoryBudgetPicker: View {
+    let categories: [LedgerCategory]
+    let targets: [String: Int]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                ForEach(categories) { category in
+                    // A push rather than a second sheet: chaining sheet presentations is where
+                    // SwiftUI drops the second one.
+                    NavigationLink(value: category.raw) {
+                        row(category)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, Metrics.screenPadding)
+            .padding(.vertical, 16)
+        }
+        .background(Palette.background)
+        .navigationTitle("예산을 정할 카테고리")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func row(_ category: LedgerCategory) -> some View {
+        HStack(spacing: 12) {
+            CategoryIcon(category: category, size: 32)
+
+            Text(category.label)
+                .font(.rowTitle)
+                .foregroundStyle(Palette.textPrimary)
+
+            Spacer()
+
+            if let target = targets[category.raw], target > 0 {
+                Text(CurrencyFormatter.string(from: target))
+                    .font(.captionSmall)
+                    .foregroundStyle(Palette.textTertiary)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Palette.textTertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+    }
+}
+
+/// Entering a won amount. A page rather than a whole sheet, so it works both as the only thing in
+/// the sheet and as the second step after picking a category.
+private struct AmountEntryPage: View {
     let title: String
     let initialAmount: Int
     let onSave: (Int) -> Void
+    /// Closes the sheet outright. `dismiss()` would only pop back to the category list when this
+    /// page was pushed onto it.
+    let onClose: () -> Void
+    /// Off when pushed: a leading 취소 would sit where the back button belongs.
+    var showsCancel = true
 
-    @Environment(\.dismiss) private var dismiss
     @State private var digits = ""
 
     private var amount: Int { Int(digits) ?? 0 }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Text(CurrencyFormatter.string(from: amount))
-                    .font(.cardAmount)
-                    .foregroundStyle(amount > 0 ? Palette.textPrimary : Palette.textTertiary)
-                    .padding(.top, 24)
+        VStack(spacing: 20) {
+            Text(CurrencyFormatter.string(from: amount))
+                .font(.cardAmount)
+                .foregroundStyle(amount > 0 ? Palette.textPrimary : Palette.textTertiary)
+                .padding(.top, 24)
 
-                TextField("금액", text: $digits)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 16))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .background(Palette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
-                    .onChange(of: digits) { _, new in
-                        let filtered = String(new.filter(\.isNumber).drop { $0 == "0" }.prefix(12))
-                        if filtered != new { digits = filtered }
-                    }
+            TextField("금액", text: $digits)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 16))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(Palette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+                .onChange(of: digits) { _, new in
+                    let filtered = String(new.filter(\.isNumber).drop { $0 == "0" }.prefix(12))
+                    if filtered != new { digits = filtered }
+                }
 
-                Text("0으로 저장하면 목표가 삭제됩니다.")
-                    .font(.captionSmall)
-                    .foregroundStyle(Palette.textTertiary)
+            Text("0으로 저장하면 목표가 삭제됩니다.")
+                .font(.captionSmall)
+                .foregroundStyle(Palette.textTertiary)
 
-                Spacer()
-            }
-            .padding(.horizontal, Metrics.screenPadding)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Metrics.screenPadding)
+        .background(Palette.background)
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if showsCancel {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") {
-                        onSave(amount)
-                        dismiss()
-                    }
+                    Button("취소", action: onClose)
                 }
             }
-            .onAppear {
-                if initialAmount > 0 { digits = String(initialAmount) }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("저장") {
+                    onSave(amount)
+                    onClose()
+                }
             }
         }
-        // .medium rather than a fixed 300pt, which the number pad would cover.
-        .presentationDetents([.medium])
+        .onAppear {
+            if initialAmount > 0 { digits = String(initialAmount) }
+        }
     }
 }

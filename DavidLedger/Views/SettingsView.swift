@@ -21,19 +21,16 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScreenHeader(title: "설정")
+            headerBar
 
             ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
+                VStack(alignment: .leading, spacing: 0) {
                     ledgerCard
                     appearanceGroup
                     notificationGroup
-                    categoryGroup
                     dataGroup
-                    infoGroup
+                    appInfo
                 }
-                .padding(.horizontal, Metrics.screenPadding)
-                .padding(.top, 12)
                 .padding(.bottom, 24)
             }
         }
@@ -50,36 +47,57 @@ struct SettingsView: View {
         }
     }
 
-    /// The design puts an account card here. This app has no accounts, so the slot shows what the
-    /// ledger actually holds rather than inventing a signed-in user.
-    private var ledgerCard: some View {
-        SurfaceCard {
-            HStack(spacing: 14) {
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Palette.accent)
-                    .frame(width: 48, height: 48)
-                    .background(Palette.accent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("다비드 가계부")
-                        .font(.rowTitle)
-                        .foregroundStyle(Palette.textPrimary)
-                    Text("기록된 내역 \(allTransactions.count)건")
-                        .font(.captionSmall)
-                        .foregroundStyle(Palette.textTertiary)
-                }
-                Spacer()
-            }
+    private var headerBar: some View {
+        HStack {
+            Text("설정")
+                .font(.system(size: 20, weight: .heavy))
+                .foregroundStyle(Palette.textPrimary)
+            Spacer()
         }
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 16)
     }
 
+    /// The design puts a profile card here. This app has no accounts, so the slot shows what the
+    /// ledger actually holds rather than inventing a signed-in user.
+    private var ledgerCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 20))
+                .foregroundStyle(Palette.accent)
+                .frame(width: 48, height: 48)
+                .background(Palette.track)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("다비드 가계부")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Palette.textPrimary)
+                Text("기록된 내역 \(allTransactions.count)건")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.textSecondary)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: Metrics.cardRadius).stroke(Palette.border, lineWidth: 1)
+        )
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - 화면
+
     private var appearanceGroup: some View {
-        SettingsGroup(title: "화면") {
-            settingsCard {
+        group("화면") {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("화면 모드")
-                    .font(.rowTitle)
+                    .font(.system(size: 14))
                     .foregroundStyle(Palette.textPrimary)
 
                 HStack(spacing: 0) {
@@ -89,11 +107,11 @@ struct SettingsView: View {
                             settings.appearance = option
                         } label: {
                             Text(option.label)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(selected ? Palette.textPrimary : Palette.textTertiary)
+                                .font(.system(size: 13, weight: selected ? .bold : .medium))
+                                .foregroundStyle(selected ? Palette.accent : Palette.textTertiary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 9)
-                                .background(selected ? Palette.background : Color.clear)
+                                .background(selected ? Palette.surfaceRaised : Color.clear)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
@@ -101,13 +119,16 @@ struct SettingsView: View {
                     }
                 }
                 .padding(3)
-                .background(Palette.border.opacity(0.5))
+                .background(Palette.track)
                 .clipShape(RoundedRectangle(cornerRadius: 11))
             }
+            .padding(16)
 
-            settingsCard {
+            divider
+
+            VStack(alignment: .leading, spacing: 12) {
                 Text("강조 색")
-                    .font(.rowTitle)
+                    .font(.system(size: 14))
                     .foregroundStyle(Palette.textPrimary)
 
                 LazyVGrid(
@@ -133,37 +154,31 @@ struct SettingsView: View {
                         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
                     }
                 }
-                .padding(.top, 2)
             }
+            .padding(16)
         }
     }
 
-    /// The bordered card the settings rows sit in, shared by the two panels above that hold a
-    /// control rather than a single labelled row.
-    private func settingsCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) { content() }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
-    }
+    // MARK: - 알림 및 보안
 
     private var notificationGroup: some View {
-        SettingsGroup(title: "알림 및 보안") {
-            SettingsToggleRow(title: "매일 저녁 소비 알림", isOn: $settings.dailyReminderEnabled)
+        group("알림 및 보안") {
+            toggleRow(title: "매일 저녁 소비 알림", isOn: $settings.dailyReminderEnabled)
                 .onChange(of: settings.dailyReminderEnabled) { _, enabled in
                     Task { await NotificationScheduler.setDailyReminder(enabled: enabled) }
                 }
 
-            SettingsToggleRow(title: "예산 90% 초과시 알림", isOn: $settings.budgetAlertEnabled)
+            divider
+
+            toggleRow(title: "예산 90% 초과시 알림", isOn: $settings.budgetAlertEnabled)
                 .onChange(of: settings.budgetAlertEnabled) { _, enabled in
                     guard enabled else { return }
                     Task { await NotificationScheduler.requestAuthorization() }
                 }
 
-            SettingsToggleRow(title: "생체 인증 사용", isOn: $settings.biometricLockEnabled)
+            divider
+
+            toggleRow(title: "생체 인증 사용", isOn: $settings.biometricLockEnabled)
                 .onChange(of: settings.biometricLockEnabled) { _, enabled in
                     guard enabled else { return }
                     var error: NSError?
@@ -179,14 +194,32 @@ struct SettingsView: View {
         }
     }
 
-    private var categoryGroup: some View {
-        SettingsGroup(title: "카테고리") {
+    // MARK: - 데이터 및 서비스
+
+    private var dataGroup: some View {
+        group("데이터 및 서비스") {
+            // Built on demand rather than in `body`: eagerly joining the whole ledger into a string
+            // on every view update would cost the same whether or not the user ever shares.
+            Button {
+                exportedCSV = LedgerCSV(transactions: allTransactions, catalog: catalog)
+            } label: {
+                valueRow(title: "소비 데이터 내보내기", value: "CSV", emphasised: true)
+            }
+            .buttonStyle(.plain)
+            .disabled(allTransactions.isEmpty)
+            .sheet(item: $exportedCSV) { csv in
+                ShareSheet(csv: csv)
+            }
+
+            divider
+
             Button {
                 isManagingCategories = true
             } label: {
-                SettingsRowLabel(
-                    title: "카테고리 관리",
-                    value: "내 카테고리 \(catalog.activeCustoms.count)개"
+                valueRow(
+                    title: "카테고리 편집",
+                    value: "\(catalog.activeCustoms.count)개",
+                    showsChevron: true
                 )
             }
             .buttonStyle(.plain)
@@ -196,94 +229,97 @@ struct SettingsView: View {
         }
     }
 
-    private var dataGroup: some View {
-        SettingsGroup(title: "데이터") {
-            // Built on demand rather than in `body`: eagerly joining the whole ledger into a
-            // string on every view update would cost the same whether or not the user ever shares.
-            Button {
-                exportedCSV = LedgerCSV(transactions: allTransactions, catalog: catalog)
-            } label: {
-                SettingsRowLabel(title: "소비 데이터 내보내기", value: "CSV")
+    private var appInfo: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("버전 정보")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.textSecondary)
+                Spacer()
+                Text(appVersion)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.textTertiary)
             }
-            .buttonStyle(.plain)
-            .disabled(allTransactions.isEmpty)
-            .sheet(item: $exportedCSV) { csv in
-                ShareSheet(csv: csv)
-            }
-        }
-    }
 
-    private var infoGroup: some View {
-        SettingsGroup(title: "앱 정보") {
-            SettingsRowLabel(title: "버전 정보", value: appVersion, showsChevron: false)
+            Link(
+                "개인정보 처리방침",
+                destination: URL(string: "https://davidjeong1.github.io/budget/privacy.html")!
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(Palette.textTertiary)
+            .underline()
 
             Text("기록한 내역은 이 기기 안에만 저장됩니다. 외부로 전송되지 않으며, 앱을 삭제하면 함께 지워집니다.")
-                .font(.captionSmall)
+                .font(.system(size: 11))
                 .foregroundStyle(Palette.textTertiary)
                 .padding(.top, 4)
         }
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 16)
     }
-}
 
-private struct SettingsGroup<Content: View>: View {
-    let title: String
-    @ViewBuilder var content: Content
+    // MARK: - Building blocks
 
-    var body: some View {
+    /// A titled group whose rows sit in one card, hairlines between them — the design's list shape.
+    private func group<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.captionSmall)
-                .foregroundStyle(Palette.textTertiary)
-            VStack(spacing: 10) { content }
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Palette.textSecondary)
+
+            VStack(spacing: 0) { content() }
+                .background(Palette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Metrics.cardRadius)
+                        .stroke(Palette.border, lineWidth: 1)
+                )
         }
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 12)
     }
-}
 
-private struct SettingsToggleRow: View {
-    let title: String
-    @Binding var isOn: Bool
+    private var divider: some View {
+        Rectangle().fill(Palette.border).frame(height: 1)
+    }
 
-    var body: some View {
-        Toggle(isOn: $isOn) {
+    private func toggleRow(title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
             Text(title)
-                .font(.rowTitle)
+                .font(.system(size: 14))
                 .foregroundStyle(Palette.textPrimary)
         }
         .tint(Palette.accent)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .padding(16)
     }
-}
 
-private struct SettingsRowLabel: View {
-    let title: String
-    var value: String?
-    var showsChevron = true
-
-    var body: some View {
+    private func valueRow(
+        title: String,
+        value: String,
+        emphasised: Bool = false,
+        showsChevron: Bool = false
+    ) -> some View {
         HStack {
             Text(title)
-                .font(.rowTitle)
+                .font(.system(size: 14))
                 .foregroundStyle(Palette.textPrimary)
+
             Spacer()
-            if let value {
-                Text(value)
-                    .font(.captionSmall)
-                    .foregroundStyle(Palette.textTertiary)
-            }
+
+            Text(value)
+                .font(.system(size: 14, weight: emphasised ? .bold : .regular))
+                .foregroundStyle(emphasised ? Palette.accent : Palette.textSecondary)
+
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Palette.textTertiary)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .padding(16)
+        .contentShape(Rectangle())
     }
 }

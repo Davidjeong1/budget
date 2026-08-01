@@ -79,10 +79,34 @@ enum Palette {
     /// The tab bar, which stays white on light while the cards around it do not.
     static let barBackground = Color(light: 0xFFFFFF, dark: 0x1E1E1E)
 
+    /// Ranked shades of the accent, for charts. The redesign colours a breakdown by rank rather
+    /// than by category — one hue stepped lighter and darker — so a donut and its legend stay
+    /// readable however many slices there are.
+    static func accentShade(_ rank: Int) -> Color {
+        // Reproduces the design's three steps (#C59B27, #E0B354, #9E7B26) and carries on from there.
+        let steps: [Double] = [0, 0.28, -0.2, 0.52, -0.38, 0.14]
+        return Color(
+            hex: blend(
+                UInt32(truncatingIfNeeded: AppSettings.shared.accentColorValue),
+                towards: steps[rank % steps.count]
+            )
+        )
+    }
+
+    /// Positive mixes towards white, negative towards black.
+    private static func blend(_ hex: UInt32, towards amount: Double) -> UInt32 {
+        func channel(_ shift: UInt32) -> UInt32 {
+            let value = Double((hex >> shift) & 0xFF)
+            let mixed = amount >= 0 ? value + (255 - value) * amount : value * (1 + amount)
+            return UInt32(min(max(mixed.rounded(), 0), 255))
+        }
+        return channel(16) << 16 | channel(8) << 8 | channel(0)
+    }
+
     static let income = Color(light: 0x4CAF50, dark: 0x4CAF50)
-    /// Kept for the over-budget warnings. Spending itself is no longer red in this design — an
-    /// expense row prints in `textPrimary` and the month's total in the accent.
-    static let expense = Color(light: 0xE05252, dark: 0xF08080)
+    /// Only the over-budget warnings are red now. Spending itself is not: an expense row prints
+    /// in `textPrimary` and the month's total in the accent.
+    static let expense = Color(light: 0xEF5350, dark: 0xEF5350)
 }
 
 enum Metrics {

@@ -106,15 +106,18 @@ swift test
 
 ## 검증 상태
 
-`Tests/LedgerCoreTests`는 테스트 28건(단언 61개)입니다.
-
-`MerchantCategoryClassifierTests` 10건은 macOS에서 **통과를 확인했습니다.**
+`Tests/LedgerCoreTests`의 테스트 28건(단언 61개)은 macOS에서 **전부 통과했습니다.**
 
 ```
-Executed 10 tests, with 0 failures (0 unexpected) in 0.002 seconds
+Executed 28 tests, with 0 failures (0 unexpected) in 0.003 seconds
 ```
 
-`BudgetPaceTests`와 `PaymentMessageParserTests`의 18건은 **아직 실행되지 않았습니다.**
+앱과 공유 익스텐션 두 타겟 모두 시뮬레이터 SDK로 컴파일됩니다:
+
+```bash
+xcodebuild -project DavidLedger.xcodeproj -target DavidLedger \
+  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+```
 
 `swift test`는 XCTest를 포함하지 않는 Command Line Tools 툴체인에서는 `unable to resolve module
 dependency: 'XCTest'`로 실패합니다. `xcode-select -p`가 `/Library/Developer/CommandLineTools`를

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 struct TransactionListView: View {
@@ -62,6 +63,7 @@ struct TransactionListView: View {
         guard let pendingDelete else { return }
         self.pendingDelete = nil
         withAnimation { context.delete(pendingDelete) }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func matches(_ transaction: Transaction) -> Bool {
@@ -189,6 +191,7 @@ struct TransactionListView: View {
                 .contextMenu {
                     Button("삭제", role: .destructive) {
                         withAnimation { context.delete(transaction) }
+                        WidgetCenter.shared.reloadAllTimelines()
                     }
                 }
             }

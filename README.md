@@ -26,6 +26,7 @@
 - **매일 저녁 알림** — 21시에 기록을 상기시키는 로컬 알림.
 - **예산 초과 알림** — 저장 시점에 이번 달 예산의 90%를 넘으면 한 번 알립니다.
 - **생체 인증 잠금** — Face ID 또는 기기 암호로 앱을 잠급니다. 백그라운드로 나가면 다시 잠기며, 사용할 수 없는 기기에서는 토글이 자동으로 꺼집니다.
+- **홈 화면 위젯** — 오늘 쓴 돈과 이번 달 예산 사용률을 링으로 보여줍니다. 앱을 열지 않아도 보이는 것이 가계부에서는 기록만큼 중요합니다. 내역이나 예산이 바뀌면 즉시 갱신되고, 자정에 오늘 합계가 리셋됩니다.
 - **다크 모드** — 설정에서 시스템·라이트·다크 중 고릅니다. 기본값은 시스템이라 첫 실행 시 기기 설정을 따릅니다. 강조 색도 10가지 중에서 따로 지정할 수 있습니다.
 - **CSV 내보내기** — 공유 시트로 전체 내역을 내보냅니다. Excel에서 한글이 깨지지 않도록 BOM을 붙입니다.
 
@@ -57,14 +58,18 @@ budget/
 │   ├── Support/               DesignSystem, CategoryCatalog, MonthlyDigest, 알림, CSV, 설정
 │   └── Views/                 6개 화면 + 공용 컴포넌트 + 잠금 화면
 ├── LedgerShare/               공유 익스텐션 — 문자 앱에서 바로 기록
+├── LedgerWidget/              홈 화면 위젯 — 오늘 지출과 예산 사용률
 └── project.yml                XcodeGen 스펙
 ```
 
 `MonthlyDigest`가 월별 집계를 한곳에서 계산하므로 홈의 합계, 통계의 도넛, 예산의 막대가 서로 어긋나지 않습니다.
 
-익스텐션은 앱과 **별개의 프로세스**라 자기 샌드박스만 봅니다. 그래서 SwiftData 저장소와 설정을 App Group
-(`group.com.davidjeong.ledger`)에 두고 양쪽이 같은 것을 읽습니다. 익스텐션이 컴파일하는 앱 파일은
+익스텐션들은 앱과 **별개의 프로세스**라 자기 샌드박스만 봅니다. 그래서 SwiftData 저장소와 설정을 App Group
+(`group.com.davidjeong.ledger`)에 두고 셋이 같은 것을 읽습니다. 각 익스텐션이 컴파일하는 앱 파일은
 `project.yml`에 하나씩 나열되어 있습니다 — 디렉터리 통째로 넣으면 익스텐션에서 쓸 수 없는 코드까지 끌려옵니다.
+
+위젯은 별도 프로세스라 앱이 저장해도 스스로 알지 못합니다. 내역·예산을 쓰는 지점마다
+`WidgetCenter.reloadAllTimelines()`를 호출해 갱신합니다.
 
 ## 디자인 반영 시 유의사항
 
@@ -88,10 +93,10 @@ xcodegen generate
 open DavidLedger.xcodeproj
 ```
 
-Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 됩니다. 타겟이 둘(`DavidLedger`,
-`LedgerShare`)이므로 **양쪽 모두** 팀을 선택해야 합니다.
+Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 됩니다. 타겟이 셋(`DavidLedger`,
+`LedgerShare`, `LedgerWidget`)이므로 **전부** 팀을 선택해야 합니다.
 
-**App Groups**는 유료 개발자 프로그램에서만 쓸 수 있습니다. 서명 후 두 타겟의 Signing & Capabilities에
+**App Groups**는 유료 개발자 프로그램에서만 쓸 수 있습니다. 서명 후 세 타겟의 Signing & Capabilities에
 `group.com.davidjeong.ledger`가 체크되어 있는지 확인하세요. 없으면 저장소를 열지 못해 앱이 메모리 모드로
 떨어지고, 기록한 내역이 남지 않습니다.
 

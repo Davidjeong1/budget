@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 struct AddTransactionView: View {
@@ -337,6 +338,10 @@ struct AddTransactionView: View {
             notifyIfBudgetThresholdCrossed(including: created)
             onSaved()
         }
+
+        // The widget reads the same store but is a separate process; without this it keeps showing
+        // the old figure until its next scheduled refresh.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Checked here rather than on a timer, because a saved expense is the only thing that can

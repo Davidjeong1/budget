@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 /// What the share sheet shows: the ledger's reading of the message, with one button to keep it.
@@ -155,6 +156,7 @@ struct ShareImportView: View {
         // request completes, which can come before an automatic save would have run.
         do {
             try context.save()
+            WidgetCenter.shared.reloadAllTimelines()
             onFinish()
         } catch {
             saveError = "저장하지 못했습니다. 앱을 한 번 열어 본 뒤 다시 시도해 주세요."

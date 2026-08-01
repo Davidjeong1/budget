@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 struct BudgetView: View {
@@ -64,7 +65,7 @@ struct BudgetView: View {
                     AmountEntryPage(
                         title: "총 목표 예산",
                         initialAmount: budget?.totalTarget ?? 0,
-                        onSave: { mutableBudget().totalTarget = $0 },
+                        onSave: { mutableBudget().totalTarget = $0; reloadWidget() },
                         onClose: { sheet = nil }
                     )
                 }
@@ -81,7 +82,7 @@ struct BudgetView: View {
                         AmountEntryPage(
                             title: "\(catalog.category(forRaw: raw).label) 예산",
                             initialAmount: budget?.target(forRaw: raw) ?? 0,
-                            onSave: { mutableBudget().setTarget($0, forRaw: raw) },
+                            onSave: { mutableBudget().setTarget($0, forRaw: raw); reloadWidget() },
                             onClose: { sheet = nil },
                             showsCancel: false
                         )
@@ -93,7 +94,7 @@ struct BudgetView: View {
                     AmountEntryPage(
                         title: "\(catalog.category(forRaw: raw).label) 예산",
                         initialAmount: budget?.target(forRaw: raw) ?? 0,
-                        onSave: { mutableBudget().setTarget($0, forRaw: raw) },
+                        onSave: { mutableBudget().setTarget($0, forRaw: raw); reloadWidget() },
                         onClose: { sheet = nil }
                     )
                 }
@@ -223,6 +224,11 @@ struct BudgetView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /// The widget shows this month's usage, so a changed target has to reach it.
+    private func reloadWidget() {
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Creates the month's budget row on first write, so reading the screen never inserts one.

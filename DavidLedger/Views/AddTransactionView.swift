@@ -149,6 +149,14 @@ struct AddTransactionView: View {
                         .minimumScaleFactor(0.5)
                         .allowsHitTesting(false)
                 )
+                .onChange(of: amountDigits) { _, new in
+                    let digits = new.filter(\.isNumber)
+                    // Trim leading zeros so "0500" cannot be entered, and cap the magnitude: past
+                    // 19 digits `Int(amountDigits)` overflows and returns nil, which reads back as
+                    // ₩0 and disables 저장하기 while the field still shows what was typed.
+                    let trimmed = String(digits.drop { $0 == "0" }.prefix(12))
+                    if trimmed != new { amountDigits = trimmed }
+                }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Metrics.screenPadding)

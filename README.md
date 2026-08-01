@@ -104,6 +104,21 @@ Xcode Cloud도 같은 이유로 클론 직후에는 프로젝트가 없으므로
 swift test
 ```
 
+### fastlane
+
+`brew install fastlane` 후:
+
+```bash
+fastlane build              # 시뮬레이터용 컴파일 확인, 서명 없음
+FASTLANE_TEAM_ID=ABCD123456 fastlane beta   # 아카이브 후 TestFlight 업로드
+```
+
+두 레인 모두 `xcodegen generate`를 먼저 돌립니다. `beta`는 빌드 번호를 타임스탬프로 채우는데,
+App Store Connect가 한 번 받은 번호를 다시 받지 않기 때문입니다.
+
+`bundle exec`는 쓰지 마세요 — macOS 기본 Ruby 2.6에는 `fastlane init`이 적어 둔 bundler 버전이
+없어서 실행 전에 실패합니다.
+
 ## 검증 상태
 
 `Tests/LedgerCoreTests`의 테스트 28건(단언 61개)은 macOS에서 **전부 통과했습니다.**

@@ -1,0 +1,51 @@
+# fastlane lanes for 다비드 가계부.
+#
+#   fastlane build   시뮬레이터용 컴파일 확인 (서명 없음)
+#   fastlane beta    아카이브 후 TestFlight 업로드
+#
+# Homebrew로 설치한 fastlane을 그대로 쓰면 됩니다 (`brew install fastlane`). 시스템 Ruby 2.6은
+# 최신 bundler를 들고 있지 않아 `bundle exec`가 먼저 죽습니다.
+
+default_platform(:ios)
+
+platform :ios do
+  # The .xcodeproj is generated from project.yml and never committed, so every lane has to make it
+  # before it can build anything. `sh` runs in the fastlane directory, hence the cd.
+  before_all do
+    sh("cd .. && xcodegen generate")
+  end
+
+  desc "시뮬레이터용으로 빌드만 — 서명이 없어도 컴파일 에러를 잡을 수 있습니다"
+  lane :build do
+    xcodebuild(
+      project: "DavidLedger.xcodeproj",
+      scheme: "DavidLedger",
+      configuration: "Debug",
+      sdk: "iphonesimulator",
+      build: true,
+      xcargs: "CODE_SIGNING_ALLOWED=NO"
+    )
+  end
+
+  desc "아카이브 후 TestFlight 업로드"
+  lane :beta do
+    # App Store Connect rejects a build number it has seen before, and the one in project.yml is
+    # a constant. A timestamp is always larger than the last one and needs nothing checked in.
+    build_number = Time.now.strftime("%Y%m%d%H%M")
+
+    build_app(
+      project: "DavidLedger.xcodeproj",
+      scheme: "DavidLedger",
+      configuration: "Release",
+      export_method: "app-store",
+      # Both the app and the share extension are signed, so the profile lookup has to cover both.
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number} -allowProvisioningUpdates"
+    )
+
+    upload_to_testflight(
+      # The upload is the slow part; waiting on Apple's processing afterwards can take half an hour
+      # and tells us nothing we cannot read in App Store Connect.
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

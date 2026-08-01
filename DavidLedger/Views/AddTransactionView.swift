@@ -27,6 +27,7 @@ struct AddTransactionView: View {
     /// Set once the user picks a chip, so the merchant-based suggestion stops overriding them.
     @State private var didChooseCategory = false
     @State private var didLoad = false
+    @State private var isImportingMessage = false
 
     private var isEditing: Bool { editing != nil }
 
@@ -76,6 +77,7 @@ struct AddTransactionView: View {
             }
         }
         .onAppear(perform: loadIfNeeded)
+        .sheet(isPresented: $isImportingMessage) { MessageImportSheet(onApply: apply) }
         .onChange(of: isExpense) { _, expense in
             // The two modes offer different chips, so keep the selection inside the offered set —
             // not `categories`, which always contains the current selection by construction.
@@ -114,6 +116,12 @@ struct AddTransactionView: View {
                 if isEditing {
                     Button("삭제", role: .destructive, action: deleteAndClose)
                         .font(.system(size: 14, weight: .medium))
+                } else {
+                    // Only when adding: an imported message would overwrite the row being edited.
+                    Button("문자로 채우기") { isImportingMessage = true }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Palette.accent)
+                        .buttonStyle(.plain)
                 }
             }
         }
@@ -283,6 +291,22 @@ struct AddTransactionView: View {
         categoryRaw = editing.categoryRaw
         occurredAt = editing.occurredAt
         didChooseCategory = true
+    }
+
+    /// Fills the form from a parsed card message. Only the fields the message actually carried are
+    /// touched, so a partial read leaves the rest for the user rather than blanking it.
+    ///
+    /// Setting the merchant runs the category suggestion through the same path typing does, which
+    /// is why an imported 스타벅스 lands on 카페 without this having to know anything about categories.
+    private func apply(_ message: PaymentMessage, occurredAt date: Date?) {
+        amountDigits = String(message.amount)
+        if let merchant = message.merchant, !merchant.isEmpty {
+            self.merchant = merchant
+        }
+        if let date { occurredAt = date }
+        // A card message is always money out, including a cancellation — the sheet flags that case
+        // and leaves the correction to the user.
+        isExpense = true
     }
 
     private func save() {

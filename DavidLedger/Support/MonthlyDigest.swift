@@ -74,6 +74,21 @@ struct MonthlyDigest {
         return min(max(Double(expenseTotal) / Double(target), 0), 1)
     }
 
+    /// Where this month lands if spending keeps its current pace.
+    ///
+    /// nil for any month other than the one running: projecting a finished month says nothing, and
+    /// projecting a future one has nothing to project from.
+    func pace(target: Int, now: Date = .now, calendar: Calendar = .current) -> BudgetPace? {
+        guard month.contains(now) else { return nil }
+        let totalDays = calendar.range(of: .day, in: .month, for: month.start)?.count ?? 30
+        return BudgetPace.projected(
+            spent: expenseTotal,
+            target: target,
+            elapsedDays: calendar.component(.day, from: now),
+            totalDays: totalDays
+        )
+    }
+
     func budgetPercent(target: Int) -> Int {
         guard target > 0 else { return 0 }
         return Int((Double(expenseTotal) / Double(target) * 100).rounded())

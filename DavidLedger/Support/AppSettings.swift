@@ -20,7 +20,9 @@ final class AppSettings {
 
     private let defaults: UserDefaults
 
-    init(defaults: UserDefaults = .standard) {
+    /// Defaults to the group suite rather than `.standard`, so the share extension reads the same
+    /// preferences the app writes.
+    init(defaults: UserDefaults = AppGroup.defaults) {
         self.defaults = defaults
         self.dailyReminderEnabled = defaults.bool(forKey: Key.dailyReminder)
         self.budgetAlertEnabled = defaults.bool(forKey: Key.budgetAlert)

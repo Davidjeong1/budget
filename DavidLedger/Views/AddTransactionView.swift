@@ -25,7 +25,7 @@ struct AddTransactionView: View {
     /// renaming or restyling that category while this sheet is open.
     @State private var categoryRaw = Category.food.rawValue
     @State private var occurredAt = Date.now
-    /// Set once the user picks a chip, so the merchant-based suggestion stops overriding them.
+    /// Set once the user picks a card, so the merchant-based suggestion stops overriding them.
     @State private var didChooseCategory = false
     @State private var didLoad = false
     @State private var isImportingMessage = false
@@ -48,7 +48,7 @@ struct AddTransactionView: View {
         isExpense ? catalog.expenseChoices : catalog.incomeChoices
     }
 
-    /// What the grid draws. While editing a row filed under a since-archived category, that chip is
+    /// What the grid draws. While editing a row filed under a since-archived category, that card is
     /// appended so the selection stays visible — otherwise saving would silently refile the row.
     private var categories: [LedgerCategory] {
         var options = offeredCategories
@@ -63,24 +63,20 @@ struct AddTransactionView: View {
             header
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    amountField
+                VStack(alignment: .leading, spacing: 0) {
+                    amountDisplay
                     modeToggle
-                    merchantField
-                    categoryPicker
-                    dateRow
-                    memoRow
+                    categorySection
+                    fieldsSection
                     saveButton
                 }
-                .padding(.horizontal, Metrics.screenPadding)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
+                .padding(.bottom, 16)
             }
         }
         .onAppear(perform: loadIfNeeded)
         .sheet(isPresented: $isImportingMessage) { MessageImportSheet(onApply: apply) }
         .onChange(of: isExpense) { _, expense in
-            // The two modes offer different chips, so keep the selection inside the offered set —
+            // The two modes offer different cards, so keep the selection inside the offered set —
             // not `categories`, which always contains the current selection by construction.
             if !offeredCategories.contains(where: { $0.raw == categoryRaw }) {
                 categoryRaw = expense ? Category.food.rawValue : Category.salary.rawValue
@@ -96,70 +92,67 @@ struct AddTransactionView: View {
     }
 
     private var header: some View {
-        ZStack {
+        HStack(spacing: 6) {
+            if isEditing {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Palette.textPrimary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("닫기")
+            }
+
             Text(isEditing ? "내역 수정" : "내역 추가")
-                .font(.screenTitle)
+                .font(.system(size: 20, weight: .heavy))
                 .foregroundStyle(Palette.textPrimary)
 
-            HStack {
-                if isEditing {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(Palette.textPrimary)
-                    }
+            Spacer()
+
+            if isEditing {
+                Button("삭제", role: .destructive, action: deleteAndClose)
+                    .font(.system(size: 14, weight: .medium))
+            } else {
+                // Only when adding: an imported message would overwrite the row being edited.
+                Button("문자로 채우기") { isImportingMessage = true }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Palette.accent)
                     .buttonStyle(.plain)
-                    .accessibilityLabel("닫기")
-                }
-                Spacer()
-                if isEditing {
-                    Button("삭제", role: .destructive, action: deleteAndClose)
-                        .font(.system(size: 14, weight: .medium))
-                } else {
-                    // Only when adding: an imported message would overwrite the row being edited.
-                    Button("문자로 채우기") { isImportingMessage = true }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Palette.accent)
-                        .buttonStyle(.plain)
-                }
             }
         }
-        .frame(height: 56)
         .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 16)
     }
 
-    private var amountField: some View {
-        VStack(spacing: 6) {
+    private var amountDisplay: some View {
+        VStack(spacing: 8) {
             Text("금액 입력")
-                .font(.captionSmall)
-                .foregroundStyle(Palette.textTertiary)
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.textSecondary)
 
-            // A digits-only field keeps the big ₩ figure formatted while the user types. The
-            // prompt is empty because the field's own text is invisible and the overlay below
-            // already renders a ₩ 0 placeholder — a prompt would show through on top of it.
+            // A digits-only field keeps the big ₩ figure formatted while the user types. The prompt
+            // is empty because the field's own text is invisible and the overlay below already
+            // renders a ₩ 0 placeholder — a prompt would show through on top of it.
             TextField("", text: $amountDigits)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: 40, weight: .heavy))
                 .foregroundStyle(.clear)
                 .tint(Palette.accent)
                 .overlay(
                     Text(CurrencyFormatter.string(from: amount))
-                        .font(.cardAmount)
-                        .foregroundStyle(amount > 0 ? Palette.textPrimary : Palette.textTertiary)
+                        .font(.system(size: 40, weight: .heavy))
+                        .foregroundStyle(amount > 0 ? Palette.accent : Palette.textTertiary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                         .allowsHitTesting(false)
                 )
-                .onChange(of: amountDigits) { _, new in
-                    let digits = new.filter(\.isNumber)
-                    // Trim leading zeros so "0500" cannot be entered, and cap the magnitude.
-                    let trimmed = String(digits.drop { $0 == "0" }.prefix(12))
-                    if trimmed != new { amountDigits = trimmed }
-                }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 24)
     }
 
     private var modeToggle: some View {
@@ -169,116 +162,134 @@ struct AddTransactionView: View {
         }
         .padding(4)
         .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: Metrics.rowRadius).stroke(Palette.border, lineWidth: 1)
+        )
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 8)
     }
 
     private func toggleButton(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(selected ? Palette.textPrimary : Palette.textTertiary)
+                .font(.system(size: 14, weight: selected ? .bold : .medium))
+                .foregroundStyle(selected ? Palette.accent : Palette.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(selected ? Palette.background : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 9))
+                .background(selected ? Palette.surfaceRaised : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .shadow(color: .black.opacity(selected ? 0.05 : 0), radius: 2, y: 2)
         }
         .buttonStyle(.plain)
     }
 
-    private var merchantField: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("사용처").font(.sectionTitle).foregroundStyle(Palette.textPrimary)
-            TextField("예: 스타벅스", text: $merchant)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
-        }
-    }
-
-    private var categoryPicker: some View {
+    private var categorySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("카테고리").font(.sectionTitle).foregroundStyle(Palette.textPrimary)
+            Text("카테고리 선택")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Palette.textSecondary)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
                 ForEach(categories) { option in
-                    let selected = option.raw == categoryRaw
-                    Button {
-                        categoryRaw = option.raw
-                        didChooseCategory = true
-                    } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: option.symbolName)
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(selected ? Palette.accent : Palette.textSecondary)
-                            Text(option.label)
-                                .font(.system(size: 11, weight: selected ? .semibold : .regular))
-                                .foregroundStyle(selected ? Palette.accent : Palette.textSecondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(selected ? Palette.accent.opacity(0.08) : Palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(selected ? Palette.accent : Palette.border, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    categoryCard(option)
                 }
             }
         }
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 12)
     }
 
-    private var dateRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("날짜").font(.sectionTitle).foregroundStyle(Palette.textPrimary)
-            DatePicker("날짜", selection: $occurredAt)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+    private func categoryCard(_ option: LedgerCategory) -> some View {
+        let selected = option.raw == categoryRaw
+
+        return Button {
+            categoryRaw = option.raw
+            didChooseCategory = true
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: option.symbolName)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(selected ? Palette.accent : Palette.textSecondary)
+                Text(option.label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(selected ? Palette.accent : Palette.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(14)
+            .background(selected ? Palette.surfaceRaised : Palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Metrics.rowRadius)
+                    .stroke(selected ? Palette.accent : Palette.border, lineWidth: selected ? 1.5 : 1)
+            )
         }
+        .buttonStyle(.plain)
     }
 
-    private var memoRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("메모").font(.sectionTitle).foregroundStyle(Palette.textPrimary)
-            TextField("메모를 입력하세요 (선택)", text: $memo, axis: .vertical)
-                .textFieldStyle(.plain)
+    private var fieldsSection: some View {
+        VStack(spacing: 12) {
+            // Not in the design, which shows only 날짜 and 메모 — but the list it feeds prints the
+            // merchant on every row, and the category suggestion is driven by it.
+            fieldRow(title: "사용처") {
+                TextField("예: 스타벅스", text: $merchant)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Palette.textPrimary)
+            }
+
+            fieldRow(title: "날짜") {
+                DatePicker("날짜", selection: $occurredAt)
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+            }
+
+            fieldRow(title: "메모") {
+                TextField("선택", text: $memo)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Palette.textPrimary)
+            }
+        }
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 12)
+    }
+
+    private func fieldRow<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack {
+            Text(title)
                 .font(.system(size: 14))
-                .lineLimit(1...4)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+                .foregroundStyle(Palette.textSecondary)
+            Spacer(minLength: 12)
+            content()
         }
+        .padding(14)
+        .background(Palette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: Metrics.rowRadius).stroke(Palette.border, lineWidth: 1)
+        )
     }
 
     private var saveButton: some View {
         Button(action: save) {
             Text("저장하기")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(canSave ? Palette.accent : Palette.textTertiary)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(canSave ? Palette.accent : Palette.track)
+                .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius))
         }
         .buttonStyle(.plain)
         .disabled(!canSave)
-        .padding(.top, 4)
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 16)
     }
 
     private func loadIfNeeded() {

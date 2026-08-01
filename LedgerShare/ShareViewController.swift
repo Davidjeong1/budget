@@ -12,16 +12,25 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             let text = await sharedText() ?? ""
-            install(
-                ShareImportView(
-                    text: text,
-                    onFinish: { [weak self] in self?.finish() },
-                    onCancel: { [weak self] in self?.cancel() }
-                )
-            )
+            installImportView(text: text)
         }
+    }
+
+    /// Built here rather than inside the `Task`, so the escaping callbacks are not closures nested
+    /// in another closure — the compiler flags a nested `[weak self]` as disagreeing with the
+    /// enclosing capture. They stay weak: the view controller owns the hosting controller, which
+    /// owns the view, which holds these.
+    private func installImportView(text: String) {
+        install(
+            ShareImportView(
+                text: text,
+                onFinish: { [weak self] in self?.finish() },
+                onCancel: { [weak self] in self?.cancel() }
+            )
+        )
     }
 
     private func install(_ root: some View) {

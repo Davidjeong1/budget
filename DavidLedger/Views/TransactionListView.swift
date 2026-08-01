@@ -125,43 +125,15 @@ struct TransactionListView: View {
     }
 
     private var headerBar: some View {
-        HStack {
-            Text("소비 내역")
-                .font(.system(size: 20, weight: .heavy))
-                .foregroundStyle(Palette.textPrimary)
-
-            Spacer()
-
-            // The month control the other screens share; the design draws none here, but the list
-            // is scoped to one month like everything else.
-            HStack(spacing: 10) {
-                Button { month = month.previous } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                Text(month.monthLabel)
-                    .font(.system(size: 13, weight: .semibold))
-                Button { month = month.next } label: {
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-            }
-            .foregroundStyle(Palette.textSecondary)
-
-            Button {
+        ScreenTitleBar(title: "소비 내역", month: $month) {
+            HeaderIconButton(
+                systemName: isSearching ? "xmark" : "magnifyingglass",
+                label: isSearching ? "검색 닫기" : "검색"
+            ) {
                 isSearching.toggle()
                 if !isSearching { searchText = "" }
-            } label: {
-                Image(systemName: isSearching ? "xmark" : "magnifyingglass")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Palette.textPrimary)
-                    .frame(width: 20, height: 20)
             }
-            .buttonStyle(.plain)
-            .padding(.leading, 12)
         }
-        .padding(.horizontal, Metrics.screenPadding)
-        .padding(.vertical, 16)
     }
 
     private var searchField: some View {
@@ -170,9 +142,7 @@ struct TransactionListView: View {
             .font(.system(size: 14))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.border, lineWidth: 1))
+            .cardSurface(cornerRadius: 10)
             .padding(.horizontal, Metrics.screenPadding)
             .padding(.bottom, 8)
     }
@@ -229,12 +199,7 @@ struct TransactionListView: View {
                     }
                 }
             }
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                    .stroke(Palette.border, lineWidth: 1)
-            )
+            .cardSurface()
         }
     }
 
@@ -249,9 +214,7 @@ struct TransactionListView: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 36, height: 36)
-                .background(Palette.surfaceRaised)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.border, lineWidth: 1))
+                .cardSurface(Palette.surfaceRaised, cornerRadius: 10)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(transaction.merchant)

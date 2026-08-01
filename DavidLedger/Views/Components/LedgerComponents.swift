@@ -1,33 +1,71 @@
 import SwiftUI
 import LedgerCore
 
-/// The header every screen carries: title on the left, one optional action on the right.
-struct ScreenHeader<Trailing: View>: View {
+/// The bar the month-scoped screens carry: title, the shared month control, and one optional
+/// action at the trailing edge.
+///
+/// The month control is not in the redesign, but all six screens look at the same month and
+/// without it the ledger is stuck on the current one. Shared from here so the three screens that
+/// carry it cannot drift apart.
+struct ScreenTitleBar<Trailing: View>: View {
     let title: String
+    @Binding var month: MonthRange
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack {
             Text(title)
-                .font(.screenTitle)
+                .font(.system(size: 20, weight: .heavy))
                 .foregroundStyle(Palette.textPrimary)
+
             Spacer()
+
+            MonthStepper(month: $month)
+
             trailing
+                .padding(.leading, 12)
         }
-        .frame(height: 56)
         .padding(.horizontal, Metrics.screenPadding)
+        .padding(.vertical, 16)
     }
 }
 
-extension ScreenHeader where Trailing == EmptyView {
-    init(title: String) {
-        self.init(title: title) { EmptyView() }
+extension ScreenTitleBar where Trailing == EmptyView {
+    init(title: String, month: Binding<MonthRange>) {
+        self.init(title: title, month: month) { EmptyView() }
     }
 }
 
-/// A tappable icon in the header, sized to the design's 20pt icon box.
+/// Steps back and forth through the months. Every screen shares one `MonthRange`, so this is the
+/// same control wherever it appears.
+struct MonthStepper: View {
+    @Binding var month: MonthRange
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button { month = month.previous } label: {
+                Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("이전 달")
+
+            Text(month.monthLabel)
+                .font(.system(size: 13, weight: .semibold))
+
+            Button { month = month.next } label: {
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("다음 달")
+        }
+        .foregroundStyle(Palette.textSecondary)
+    }
+}
+
+/// A tappable icon at the trailing edge of a title bar, sized to the design's 20pt icon box.
 struct HeaderIconButton: View {
     let systemName: String
+    let label: String
     let action: () -> Void
 
     var body: some View {
@@ -38,6 +76,23 @@ struct HeaderIconButton: View {
                 .frame(width: 20, height: 20)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+extension View {
+    /// The bordered surface every card, row group and field sits on. It was written out in nine
+    /// files before it was named, which is what the duplication report was pointing at.
+    func cardSurface(
+        _ fill: Color = Palette.surface,
+        cornerRadius: CGFloat = Metrics.cardRadius
+    ) -> some View {
+        background(fill)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(Palette.border, lineWidth: 1)
+            )
     }
 }
 
@@ -75,12 +130,7 @@ struct SurfaceCard<Content: View>: View {
         content
             .padding(Metrics.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                    .stroke(Palette.border, lineWidth: 1)
-            )
+            .cardSurface()
     }
 }
 

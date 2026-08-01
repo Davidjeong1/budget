@@ -70,9 +70,7 @@ struct MessageImportSheet: View {
             .lineLimit(4...10)
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+            .cardSurface(cornerRadius: 12)
     }
 
     @ViewBuilder

@@ -82,11 +82,7 @@ struct SettingsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.cardRadius).stroke(Palette.border, lineWidth: 1)
-        )
+        .cardSurface()
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 12)
     }
@@ -271,12 +267,7 @@ struct SettingsView: View {
                 .foregroundStyle(Palette.textSecondary)
 
             VStack(spacing: 0) { content() }
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                        .stroke(Palette.border, lineWidth: 1)
-                )
+                .cardSurface()
         }
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 12)

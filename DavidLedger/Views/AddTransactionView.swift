@@ -169,11 +169,7 @@ struct AddTransactionView: View {
             toggleButton(title: "수입", selected: !isExpense) { isExpense = false }
         }
         .padding(4)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.rowRadius).stroke(Palette.border, lineWidth: 1)
-        )
+        .cardSurface(cornerRadius: Metrics.rowRadius)
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 8)
     }
@@ -277,11 +273,7 @@ struct AddTransactionView: View {
             content()
         }
         .padding(14)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.rowRadius).stroke(Palette.border, lineWidth: 1)
-        )
+        .cardSurface(cornerRadius: Metrics.rowRadius)
     }
 
     private var saveButton: some View {

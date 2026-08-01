@@ -100,41 +100,11 @@ struct BudgetView: View {
     }
 
     private var headerBar: some View {
-        HStack {
-            Text("예산 설정")
-                .font(.system(size: 20, weight: .heavy))
-                .foregroundStyle(Palette.textPrimary)
-
-            Spacer()
-
-            // The month control the other screens share; a budget is per month, so it has to be
-            // reachable even though the design draws none.
-            HStack(spacing: 10) {
-                Button { month = month.previous } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                Text(month.monthLabel)
-                    .font(.system(size: 13, weight: .semibold))
-                Button { month = month.next } label: {
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
+        ScreenTitleBar(title: "예산 설정", month: $month) {
+            HeaderIconButton(systemName: "plus", label: "카테고리 예산 추가") {
+                sheet = .chooseCategory
             }
-            .foregroundStyle(Palette.textSecondary)
-
-            Button { sheet = .chooseCategory } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Palette.textPrimary)
-                    .frame(width: 20, height: 20)
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 12)
-            .accessibilityLabel("카테고리 예산 추가")
         }
-        .padding(.horizontal, Metrics.screenPadding)
-        .padding(.vertical, 16)
     }
 
     private var totalCard: some View {
@@ -167,12 +137,7 @@ struct BudgetView: View {
             }
             .padding(Metrics.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                    .stroke(Palette.border, lineWidth: 1)
-            )
+            .cardSurface()
         }
         .buttonStyle(.plain)
     }
@@ -249,12 +214,7 @@ struct BudgetView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                    .stroke(Palette.border, lineWidth: 1)
-            )
+            .cardSurface()
         }
         .buttonStyle(.plain)
     }
@@ -326,9 +286,7 @@ private struct CategoryBudgetPicker: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .cardSurface(cornerRadius: 12)
     }
 }
 
@@ -361,9 +319,7 @@ private struct AmountEntryPage: View {
                 .font(.system(size: 16))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-                .background(Palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+                .cardSurface(cornerRadius: 12)
                 .onChange(of: digits) { _, new in
                     let filtered = String(new.filter(\.isNumber).drop { $0 == "0" }.prefix(12))
                     if filtered != new { digits = filtered }

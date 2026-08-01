@@ -94,11 +94,7 @@ struct HomeView: View {
         }
         .padding(Metrics.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.cardRadius).stroke(Palette.border, lineWidth: 1)
-        )
+        .cardSurface()
     }
 
     /// The design has no month control here, but every screen shares one and the ledger would
@@ -175,9 +171,7 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Palette.surfaceRaised)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.border, lineWidth: 1))
+        .cardSurface(Palette.surfaceRaised, cornerRadius: 8)
     }
 
     private func paceMessage(_ pace: BudgetPace) -> String {
@@ -236,12 +230,7 @@ struct HomeView: View {
             .frame(height: 84, alignment: .bottom)
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                    .stroke(Palette.border, lineWidth: 1)
-            )
+            .cardSurface()
         }
     }
 

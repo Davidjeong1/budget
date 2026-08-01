@@ -52,29 +52,7 @@ struct StatisticsView: View {
     }
 
     private var headerBar: some View {
-        HStack {
-            Text("지출 분석")
-                .font(.system(size: 20, weight: .heavy))
-                .foregroundStyle(Palette.textPrimary)
-
-            Spacer()
-
-            HStack(spacing: 10) {
-                Button { month = month.previous } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                Text(month.monthLabel)
-                    .font(.system(size: 13, weight: .semibold))
-                Button { month = month.next } label: {
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-            }
-            .foregroundStyle(Palette.textSecondary)
-        }
-        .padding(.horizontal, Metrics.screenPadding)
-        .padding(.vertical, 16)
+        ScreenTitleBar(title: "지출 분석", month: $month)
     }
 
     private var donut: some View {
@@ -154,11 +132,7 @@ struct StatisticsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.cardRadius).stroke(Palette.border, lineWidth: 1)
-        )
+        .cardSurface()
     }
 }
 

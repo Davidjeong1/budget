@@ -139,12 +139,17 @@ App Store Connect가 한 번 받은 번호를 다시 받지 않기 때문입니�
 Executed 28 tests, with 0 failures (0 unexpected) in 0.003 seconds
 ```
 
-앱과 공유 익스텐션 두 타겟 모두 시뮬레이터 SDK로 컴파일됩니다:
+세 타겟(`DavidLedger`, `LedgerShare`, `LedgerWidget`) 모두 시뮬레이터 SDK로 컴파일됩니다:
 
 ```bash
-xcodebuild -project DavidLedger.xcodeproj -target DavidLedger \
-  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+for t in DavidLedger LedgerShare LedgerWidget; do
+  xcodebuild -project DavidLedger.xcodeproj -target $t \
+    -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+done
 ```
+
+`-target`과 `-sdk`를 쓰는 것은 목적지 해석을 건너뛰기 위해서입니다. `-scheme`과 `-destination`은
+시뮬레이터 런타임이 설치되어 있어야 하고, 없으면 컴파일 확인 전에 실패합니다.
 
 `swift test`는 XCTest를 포함하지 않는 Command Line Tools 툴체인에서는 `unable to resolve module
 dependency: 'XCTest'`로 실패합니다. `xcode-select -p`가 `/Library/Developer/CommandLineTools`를

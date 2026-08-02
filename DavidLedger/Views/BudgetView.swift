@@ -303,6 +303,8 @@ private struct AmountEntryPage: View {
     var showsCancel = true
 
     @State private var digits = ""
+    /// A number pad has no return key, so the 완료 accessory below is the only way to put it away.
+    @FocusState private var isAmountFocused: Bool
 
     private var amount: Int { Int(digits) ?? 0 }
 
@@ -315,6 +317,14 @@ private struct AmountEntryPage: View {
 
             TextField("금액", text: $digits)
                 .keyboardType(.numberPad)
+                .focused($isAmountFocused)
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("완료") { isAmountFocused = false }
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                }
                 .multilineTextAlignment(.center)
                 .font(.system(size: 16))
                 .padding(.horizontal, 16)

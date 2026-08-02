@@ -1,8 +1,14 @@
 app_identifier("com.davidjeong.ledger")
-apple_id("davyjeong@gmail.com")
+# 개발자 프로그램 계정. 환경변수로 덮어쓸 수 있게 둔 것은, 이 파일에 박힌 주소로 로그인이
+# 시도되기 때문입니다 — 다른 계정을 쓸 때 파일을 고치는 대신 FASTLANE_USER를 넘기면 됩니다.
+apple_id(ENV["FASTLANE_USER"] || "davy_jeong@naver.com")
 
 # 팀 ID는 커밋하지 않고 각자 환경변수로 넘깁니다. Xcode의 Signing & Capabilities나
 # `security find-identity -v -p codesigning` 출력의 괄호 안 10자리입니다.
 #
 #   export FASTLANE_TEAM_ID=ABCD123456
 team_id(ENV["FASTLANE_TEAM_ID"])
+
+# 이 계정은 App Store Connect 팀에 둘 이상 속해 있어, 고정해 두지 않으면 업로드할 때마다 어느
+# 팀인지 골라야 합니다. 이 앱이 있는 쪽은 개인 팀입니다.
+itc_team_id(ENV["FASTLANE_ITC_TEAM_ID"] || "129163138")

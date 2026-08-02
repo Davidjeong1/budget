@@ -30,6 +30,10 @@ struct AddTransactionView: View {
     @State private var didLoad = false
     @State private var isImportingMessage = false
 
+    /// Only the amount field is tracked: a number pad has no return key, so it is the one keyboard
+    /// the user cannot put away on their own. 사용처 and 메모 already dismiss on return.
+    @FocusState private var isAmountFocused: Bool
+
     private var isEditing: Bool { editing != nil }
 
     private var amount: Int { Int(amountDigits) ?? 0 }
@@ -72,6 +76,9 @@ struct AddTransactionView: View {
                 }
                 .padding(.bottom, 16)
             }
+            // Dragging the form is the other way out of the number pad, and the one a user reaches
+            // for when the keyboard is covering 저장하기.
+            .scrollDismissesKeyboard(.interactively)
         }
         .onAppear(perform: loadIfNeeded)
         .sheet(isPresented: $isImportingMessage) { MessageImportSheet(onApply: apply) }
@@ -137,6 +144,17 @@ struct AddTransactionView: View {
             // renders a ₩ 0 placeholder — a prompt would show through on top of it.
             TextField("", text: $amountDigits)
                 .keyboardType(.numberPad)
+                .focused($isAmountFocused)
+                // Attached to the field rather than the screen so it rides the number pad only —
+                // 사용처 and 메모 get their own return key instead.
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("완료") { isAmountFocused = false }
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Palette.accent)
+                    }
+                }
                 .multilineTextAlignment(.center)
                 .font(.system(size: 40, weight: .heavy))
                 .foregroundStyle(.clear)

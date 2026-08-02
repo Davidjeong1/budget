@@ -11,6 +11,9 @@ struct MessageImportSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    /// The message field takes several lines, so its return key has to stay a newline — which
+    /// leaves the 완료 accessory as the only way to put the keyboard away.
+    @FocusState private var isMessageFocused: Bool
 
     private var parsed: PaymentMessage? { PaymentMessageParser.parse(text) }
 
@@ -27,10 +30,15 @@ struct MessageImportSheet: View {
                 .padding(.horizontal, Metrics.screenPadding)
                 .padding(.vertical, 16)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(Palette.background)
             .navigationTitle("문자로 채우기")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("완료") { isMessageFocused = false }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }
                 }
@@ -65,6 +73,7 @@ struct MessageImportSheet: View {
 
     private var messageField: some View {
         TextField("[Web발신]\n신한카드(1234)승인\n5,500원\n07/31 14:23\n스타벅스", text: $text, axis: .vertical)
+            .focused($isMessageFocused)
             .textFieldStyle(.plain)
             .font(.system(size: 14))
             .lineLimit(4...10)

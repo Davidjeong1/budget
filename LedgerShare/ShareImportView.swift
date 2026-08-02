@@ -17,6 +17,8 @@ struct ShareImportView: View {
     @State private var merchant = ""
     @State private var didLoad = false
     @State private var saveError: String?
+    /// The share sheet is short, so a keyboard that will not go away covers the 저장 button outright.
+    @FocusState private var isMerchantFocused: Bool
 
     private var parsed: PaymentMessage? { PaymentMessageParser.parse(text) }
 
@@ -42,6 +44,10 @@ struct ShareImportView: View {
             .navigationTitle("가계부에 추가")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("완료") { isMerchantFocused = false }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소", action: onCancel)
                 }
@@ -86,6 +92,11 @@ struct ShareImportView: View {
                 // Editable: the merchant is the field the parse is most likely to get wrong, and it
                 // is the one that decides the category.
                 TextField("사용처", text: $merchant)
+                    .focused($isMerchantFocused)
+                    // A 한글 keyboard's return key only commits the composition; without these the
+                    // keyboard stays up.
+                    .submitLabel(.done)
+                    .onSubmit { isMerchantFocused = false }
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .padding(.horizontal, 16)

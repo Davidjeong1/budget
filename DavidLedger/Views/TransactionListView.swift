@@ -15,6 +15,8 @@ struct TransactionListView: View {
     @State private var isSearching = false
     @State private var editing: Transaction?
     @State private var pendingDelete: Transaction?
+    /// The search field is the one keyboard on this screen, and the results it filters are behind it.
+    @FocusState private var isSearchFocused: Bool
 
     /// The pills across the top: the two modes plus the categories actually used this month, so the
     /// row does not fill with categories the user never touches.
@@ -106,6 +108,14 @@ struct TransactionListView: View {
                     .padding(.horizontal, Metrics.screenPadding)
                     .padding(.vertical, 12)
                 }
+                // Scrolling the results is the natural way to get past the search keyboard.
+                .scrollDismissesKeyboard(.interactively)
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("완료") { isSearchFocused = false }
             }
         }
         // Deletions are deferred to onDismiss: removing the model while the sheet is still
@@ -138,6 +148,11 @@ struct TransactionListView: View {
 
     private var searchField: some View {
         TextField("사용처나 메모로 검색", text: $searchText)
+            .focused($isSearchFocused)
+            // Results filter as the user types, so the return key's job here is only to get the
+            // keyboard out of the way of them.
+            .submitLabel(.done)
+            .onSubmit { isSearchFocused = false }
             .textFieldStyle(.plain)
             .font(.system(size: 14))
             .padding(.horizontal, 14)

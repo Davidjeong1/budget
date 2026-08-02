@@ -224,6 +224,9 @@ private struct CategoryEditorSheet: View {
     @State private var colorValue = Int(CategoryStyle.colors[0])
     @State private var isIncome = false
     @State private var didLoad = false
+    /// The name field is the only thing here that takes a keyboard, and the 완료 accessory below is
+    /// what gives it back.
+    @FocusState private var isNameFocused: Bool
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
 
@@ -257,10 +260,15 @@ private struct CategoryEditorSheet: View {
                 .padding(.horizontal, Metrics.screenPadding)
                 .padding(.vertical, 16)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(Palette.background)
             .navigationTitle(existing == nil ? "카테고리 추가" : "카테고리 수정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("완료") { isNameFocused = false }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }
                 }
@@ -305,6 +313,11 @@ private struct CategoryEditorSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("이름").font(.sectionTitle).foregroundStyle(Palette.textPrimary)
             TextField("예: 반려동물", text: $name)
+                .focused($isNameFocused)
+                // A 한글 keyboard's return key only commits the composition, so without these the
+                // field keeps the keyboard and it covers the 저장 button.
+                .submitLabel(.done)
+                .onSubmit { isNameFocused = false }
                 .textFieldStyle(.plain)
                 .font(.system(size: 14))
                 .padding(.horizontal, 16)

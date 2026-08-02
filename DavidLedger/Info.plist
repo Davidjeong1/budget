@@ -28,6 +28,11 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<!-- The ledger stores everything on device and talks to nothing, so the only cryptography in
+	     play is what iOS itself provides. Declaring that here means App Store Connect stops
+	     holding each build at "Missing Compliance" waiting for the same answer by hand. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>PrivacyPolicyURL</key>
 	<string>https://davidjeong1.github.io/budget/privacy.html</string>
 	<key>NSFaceIDUsageDescription</key>

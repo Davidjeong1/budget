@@ -8,3 +8,7 @@ apple_id(ENV["FASTLANE_USER"] || "davy_jeong@naver.com")
 #
 #   export FASTLANE_TEAM_ID=ABCD123456
 team_id(ENV["FASTLANE_TEAM_ID"])
+
+# 이 계정은 App Store Connect 팀에 둘 이상 속해 있어, 고정해 두지 않으면 업로드할 때마다 어느
+# 팀인지 골라야 합니다. 이 앱이 있는 쪽은 개인 팀입니다.
+itc_team_id(ENV["FASTLANE_ITC_TEAM_ID"] || "129163138")

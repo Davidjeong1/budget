@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Settings for `xcodebuild -exportArchive`, so a release can go out from the command line without
+  clicking through Organizer.
+
+  destination=upload sends the build straight to App Store Connect instead of writing an .ipa to
+  disk — the ipa on its own does nothing, and Transporter would only be a second tool doing the
+  same hand-off.
+-->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+	<key>teamID</key>
+	<string>SS447UT9GU</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<!-- dSYMs travel with the build so App Store Connect can symbolicate crash reports. -->
+	<key>uploadSymbols</key>
+	<true/>
+	<!-- The app ships one arm64 slice; there is nothing for App Store thinning to split apart. -->
+	<key>stripSwiftSymbols</key>
+	<true/>
+</dict>
+</plist>

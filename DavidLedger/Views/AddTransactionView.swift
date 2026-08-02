@@ -30,9 +30,12 @@ struct AddTransactionView: View {
     @State private var didLoad = false
     @State private var isImportingMessage = false
 
-    /// Only the amount field is tracked: a number pad has no return key, so it is the one keyboard
-    /// the user cannot put away on their own. 사용처 and 메모 already dismiss on return.
-    @FocusState private var isAmountFocused: Bool
+    /// Which field holds the keyboard, so the 완료 accessory can hand it back. Every text field is
+    /// tracked rather than just 금액: the accessory rides whichever keyboard is up, and a return key
+    /// on its own is not a way out anyone finds.
+    private enum Field: Hashable { case amount, merchant, memo }
+
+    @FocusState private var focusedField: Field?
 
     private var isEditing: Bool { editing != nil }
 
@@ -79,6 +82,15 @@ struct AddTransactionView: View {
             // Dragging the form is the other way out of the number pad, and the one a user reaches
             // for when the keyboard is covering 저장하기.
             .scrollDismissesKeyboard(.interactively)
+        }
+        // On the screen rather than on one field, so it comes up with any of the three keyboards.
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("완료") { focusedField = nil }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Palette.accent)
+            }
         }
         .onAppear(perform: loadIfNeeded)
         .sheet(isPresented: $isImportingMessage) { MessageImportSheet(onApply: apply) }
@@ -144,17 +156,7 @@ struct AddTransactionView: View {
             // renders a ₩ 0 placeholder — a prompt would show through on top of it.
             TextField("", text: $amountDigits)
                 .keyboardType(.numberPad)
-                .focused($isAmountFocused)
-                // Attached to the field rather than the screen so it rides the number pad only —
-                // 사용처 and 메모 get their own return key instead.
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("완료") { isAmountFocused = false }
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Palette.accent)
-                    }
-                }
+                .focused($focusedField, equals: .amount)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 40, weight: .heavy))
                 .foregroundStyle(.clear)
@@ -257,6 +259,11 @@ struct AddTransactionView: View {
             // merchant on every row, and the category suggestion is driven by it.
             fieldRow(title: "사용처") {
                 TextField("예: 스타벅스", text: $merchant)
+                    .focused($focusedField, equals: .merchant)
+                    // A 한글 keyboard's return key commits the composition rather than dismissing,
+                    // so the field is left holding the keyboard unless this hands it back.
+                    .submitLabel(.done)
+                    .onSubmit { focusedField = nil }
                     .multilineTextAlignment(.trailing)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Palette.textPrimary)
@@ -270,6 +277,9 @@ struct AddTransactionView: View {
 
             fieldRow(title: "메모") {
                 TextField("선택", text: $memo)
+                    .focused($focusedField, equals: .memo)
+                    .submitLabel(.done)
+                    .onSubmit { focusedField = nil }
                     .multilineTextAlignment(.trailing)
                     .font(.system(size: 14))
                     .foregroundStyle(Palette.textPrimary)

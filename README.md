@@ -142,34 +142,28 @@ FASTLANE_TEAM_ID=ABCD123456 fastlane beta   # 아카이브 후 TestFlight 업로
 두 레인 모두 `xcodegen generate`를 먼저 돌립니다. `beta`는 빌드 번호를 타임스탬프로 채우는데,
 App Store Connect가 한 번 받은 번호를 다시 받지 않기 때문입니다.
 
-**아카이브는 시드가 아닌 SDK로 해야 합니다.** 버전 번호가 아니라 빌드 번호를 봐야 합니다. 빌드
-202608031815과 202608041848이 `ITMS-90111`로 반려됐는데, 둘 다 그날의 최신 정식 Xcode
-26.6 (17F113)에 iOS 26.5 SDK — 짝이 맞는 조합입니다. 문제는 그 SDK의 빌드가 **23F81a**였다는
-것입니다. 릴리스는 23F77이고, 끝의 소문자가 Apple의 시드 표기입니다. ITMS-90111이 요구하는 것은
-"latest Xcode and SDK **Release Candidates**"라, 시드는 버전이 맞아도 받지 않습니다.
+**ITMS-90111은 아직 미해결입니다.** 빌드 202608031815과 202608041848이 이걸로 반려됐고, 툴체인은
+두 번 다 정상이었습니다 — Xcode 26.6 (17F113)은 그날의 현행 정식 버전이고(Xcode 27은 베타뿐), 거기
+딸린 iOS 26.5 SDK 빌드 `23F81a`는 플랫폼을 지우고 다시 받아도 바뀌지 않습니다. Xcode에 내장된
+것이라 별도로 받을 수 있는 물건이 아닙니다.
 
-반려 시점이 특히 나쁩니다. 업로드도 처리도 다 지나가고 심사에 넣은 뒤에야 옵니다. 아카이브 내용에는
-문제가 없고 만든 툴체인만 시드라, 소스를 고쳐서는 없어지지 않습니다.
+SDK를 의심해 두 가지 규칙(Xcode보다 낮은 버전 / 시드처럼 보이는 접미사)을 넣어 봤지만 **둘 다
+틀렸습니다.** 어느 쪽이든 이 머신의 유일한 정상 툴체인을 막습니다. 그래서 레인은 SDK를 찍기만 하고
+판정하지 않습니다.
 
-```bash
-xcrun --sdk iphoneos --show-sdk-build-version   # 소문자로 끝나면 시드입니다
-xcodebuild -downloadPlatform iOS                # 릴리스 플랫폼 받기
-```
+남은 차이는 그 아래 OS입니다. 아카이브에 `BuildMachineOSBuild = 26A5388g`가 기록됐는데 macOS 27
+시드이고, 같은 머신에 Xcode 27 베타도 설치돼 있습니다. **정식 macOS나 Xcode Cloud에서 아카이브하는
+것이 다음 단계입니다** — Xcode Cloud는 Apple 인프라에서 정식 툴체인으로 빌드하므로 로컬 베타 환경을
+통째로 우회합니다(`ci_scripts/ci_post_clone.sh`가 이미 준비돼 있습니다).
 
-베타 Xcode를 함께 두고 계시면 시드 SDK는 대개 거기서 딸려옵니다. 정식 Xcode로 아카이브하세요.
-
-`beta`는 아카이브 전에 무엇으로 빌드하는지 찍고, SDK 빌드가 시드거나 `xcode-select`이
-Command Line Tools를 가리키고 있으면 거기서 멈춥니다:
+`beta`는 아카이브 전에 무엇으로 빌드하는지 찍고, 시드 macOS면 그 사실을 알립니다. 멈추는 것은
+`xcode-select`이 Command Line Tools를 가리킬 때뿐입니다:
 
 ```bash
 xcode-select -p                          # /Applications/Xcode.app/... 을 가리켜야 합니다
 xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version  # 요구 버전은 developer.apple.com/news/releases
 ```
-
-시드 SDK가 원인이라는 판단은 위 두 번의 반려에서 읽어낸 것이지 Apple이 문서로 밝힌 규칙은
-아닙니다. 틀렸다고 보시면 `FASTLANE_ALLOW_SEED_SDK=1`로 넘길 수 있습니다 — 잘못된 추론이
-릴리스를 막는 일은 없어야 하니까요.
 
 버전 하한은 코드에 박아 두지 않았습니다 — Apple이 해마다 올리므로 적어 두는 순간 틀리기 시작합니다.
 강제하려면 `FASTLANE_MINIMUM_IOS_SDK=26.0 fastlane beta`처럼 넘기세요.

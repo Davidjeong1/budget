@@ -36,18 +36,16 @@ platform :ios do
   # selected developer directory is checked outright, because Command Line Tools carries no iOS SDK
   # and is what `xcode-select` quietly falls back to after an Xcode move or a system update.
   #
-  # An up-to-date Xcode is not enough on its own, which is what builds 202608031815 and
-  # 202608041848 were both rejected for. Xcode 26.6 (17F113) was the shipping release on both days
-  # and the iOS 26.5 SDK is the right one to pair with it — `xcodebuild -downloadPlatform iOS`
-  # offers nothing newer. Neither version number was the problem.
+  # What it does NOT do is judge the SDK, after two attempts at a rule that was wrong both times.
+  # Builds 202608031815 and 202608041848 were rejected with ITMS-90111 while the toolchain was
+  # correct: Xcode 26.6 (17F113) is the shipping release, and iOS SDK 26.5 build 23F81a is what it
+  # carries — deleting and reinstalling the platform does not move it, because it is not a
+  # separately downloadable component here. Refusing a version behind its Xcode, or a build with a
+  # seed-looking suffix, would each have blocked the only correct toolchain on the machine.
   #
-  # The build numbers were. Apple marks seeds with a trailing lowercase letter: the release iOS
-  # 26.5 SDK is 23F77, and both archives recorded DTSDKBuild 23F81a. ITMS-90111 asks for "the
-  # latest Xcode and SDK Release Candidates", and a seed SDK is neither.
-  #
-  # So the seed suffix is what gets refused, not the version. FASTLANE_ALLOW_SEED_SDK=1 overrides:
-  # the rule is read off two rejections rather than documented by Apple, and a wrong inference must
-  # not be the thing that stops a release.
+  # So the SDK is printed and left alone. The remaining difference between this machine and a
+  # normal one is the OS underneath — BuildMachineOSBuild recorded 26A5388g, a macOS 27 seed, with
+  # an Xcode 27 beta installed alongside. That is reported too, without a verdict attached.
   #
   # The SDK floor is not hardcoded. Apple raises it about once a year, and a number written here
   # would be wrong from the day they do — set FASTLANE_MINIMUM_IOS_SDK when you want the lane to
@@ -67,19 +65,14 @@ platform :ios do
     sdk_build = sh("xcrun --sdk iphoneos --show-sdk-build-version", log: false).strip
     UI.important("아카이브 툴체인: #{xcode} · iOS SDK #{sdk} (#{sdk_build}) · #{developer_dir}")
 
-    # 23F77 ships; 23F81a is a seed. Apple's build numbers are <major><train><number>, and only a
-    # seed carries a lowercase letter after the number — which is the whole test.
-    if sdk_build.match?(/\d[a-z]\z/) && ENV["FASTLANE_ALLOW_SEED_SDK"].to_s.empty?
-      UI.user_error!(
-        "iOS SDK #{sdk} 빌드 #{sdk_build}는 시드(베타)입니다. 끝의 소문자가 그 표시이고, 릴리스 " \
-        "빌드에는 붙지 않습니다. 시드 SDK로 만든 바이너리는 ITMS-90111로 반려됩니다 " \
-        "(202608031815, 202608041848 — 둘 다 23F81a).\n" \
-        "릴리스 플랫폼을 받으세요:\n" \
-        "  xcodebuild -downloadPlatform iOS\n" \
-        "  (또는 Xcode → Settings → Components — 시드 iOS 플랫폼이 있으면 지우세요)\n" \
-        "받은 뒤 `xcrun --sdk iphoneos --show-sdk-build-version`에 소문자가 없어야 합니다.\n" \
-        "베타 Xcode를 쓰고 계시면 정식 Xcode로 아카이브하세요 — 시드 SDK는 대개 거기서 딸려옵니다.\n" \
-        "이 판단이 틀렸다고 보시면 FASTLANE_ALLOW_SEED_SDK=1 로 넘길 수 있습니다."
+    # Seeds carry a trailing lowercase letter, and the machine that produced both rejected builds
+    # runs one. Said rather than enforced: Xcode 26.6's own iOS SDK reads as 23F81a, so a rule that
+    # refuses the suffix refuses every correct build here.
+    os_build = sh("sw_vers -buildVersion", log: false).strip
+    if os_build.match?(/\d[a-z]\z/)
+      UI.important(
+        "빌드 머신이 시드 macOS입니다 (#{os_build}). 아카이브에 BuildMachineOSBuild로 기록되며, " \
+        "ITMS-90111이 계속 나온다면 남은 변수입니다 — 정식 macOS나 Xcode Cloud에서 아카이브해 보세요."
       )
     end
 

@@ -1,6 +1,28 @@
 import SwiftUI
 import LocalAuthentication
 
+/// What the app switcher gets to see while 생체 인증 사용 is on.
+///
+/// Deliberately not the lock screen: this is drawn over a window that is on its way out, so it has
+/// no buttons to press and nothing to authenticate. It only has to be opaque and to look like the
+/// app rather than a blank rectangle.
+struct PrivacyCover: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(Palette.accent)
+
+            Text("다비드 가계부")
+                .font(.screenTitle)
+                .foregroundStyle(Palette.textPrimary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.background)
+        .ignoresSafeArea()
+    }
+}
+
 /// Covers the ledger until the user authenticates, when 생체 인증 사용 is on.
 struct LockScreen: View {
     let onUnlock: () -> Void

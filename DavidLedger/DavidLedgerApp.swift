@@ -16,6 +16,16 @@ struct DavidLedgerApp: App {
                     RootView()
                 }
             }
+            // iOS snapshots the window for the app switcher when the scene goes inactive, and
+            // .inactive arrives before .background — so re-locking below is always too late to keep
+            // the ledger out of that thumbnail. Covering the window while the scene is not active
+            // is what ends up in the snapshot instead. A lock that anyone can read around by
+            // double-tapping the home indicator is not a lock.
+            .overlay {
+                if settings.biometricLockEnabled && scenePhase != .active {
+                    PrivacyCover()
+                }
+            }
             // Applied at the scene root so sheets and the lock screen follow the choice too.
             .preferredColorScheme(settings.appearance.colorScheme)
             // Turning the lock off while locked must not leave the user stuck behind it.

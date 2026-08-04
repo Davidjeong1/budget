@@ -415,7 +415,8 @@ private struct CategoryEditorSheet: View {
                             )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(symbol)
+                    .accessibilityLabel(CategoryStyle.label(forSymbol: symbol))
+                    .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
                 }
             }
         }
@@ -439,7 +440,8 @@ private struct CategoryEditorSheet: View {
                             )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(String(format: "#%06X", hex))
+                    .accessibilityLabel(ColorNames.of(hex))
+                    .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
                 }
             }
         }
@@ -464,6 +466,24 @@ enum CategoryStyle {
         "house.fill", "tag.fill", "gift.fill", "heart.fill", "cross.case.fill",
         "book.fill", "graduationcap.fill", "pawprint.fill", "gamecontroller.fill", "airplane",
         "dumbbell.fill", "scissors", "wrench.and.screwdriver.fill", "creditcard.fill", "wonsign.circle.fill",
+    ]
+
+    /// What each glyph is called out loud. An SF Symbol name is an asset identifier, not a
+    /// description — VoiceOver reading "cart dot fill" names the file rather than the picture, and
+    /// the grid is twenty of them in a row.
+    ///
+    /// Kept beside `symbols` rather than folded into it so the array stays a plain `[String]`: it is
+    /// the stored value, and `CustomCategory.symbolName` holds one of these strings.
+    static func label(forSymbol symbol: String) -> String { symbolLabels[symbol] ?? symbol }
+
+    private static let symbolLabels: [String: String] = [
+        "cart.fill": "장바구니", "fork.knife": "식사", "cup.and.saucer.fill": "커피",
+        "bus.fill": "버스", "car.fill": "자동차", "house.fill": "집", "tag.fill": "가격표",
+        "gift.fill": "선물", "heart.fill": "하트", "cross.case.fill": "의료", "book.fill": "책",
+        "graduationcap.fill": "학사모", "pawprint.fill": "발자국", "gamecontroller.fill": "게임",
+        "airplane": "비행기", "dumbbell.fill": "운동", "scissors": "가위",
+        "wrench.and.screwdriver.fill": "공구", "creditcard.fill": "신용카드",
+        "wonsign.circle.fill": "원화",
     ]
 
     static let colors: [UInt32] = [

@@ -146,7 +146,7 @@ struct SettingsView: View {
                                 )
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(String(format: "#%06X", hex))
+                        .accessibilityLabel(ColorNames.of(hex))
                         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
                     }
                 }

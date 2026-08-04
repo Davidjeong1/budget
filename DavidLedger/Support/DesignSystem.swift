@@ -109,6 +109,33 @@ enum Palette {
     static let expense = Color(light: 0xEF5350, dark: 0xEF5350)
 }
 
+/// What the colour swatches are called out loud, for 설정 → 강조 색 and the category editor's 색상.
+///
+/// A circle filled with a colour has no text in it, so VoiceOver reads whatever the button's label
+/// says — and a hex triplet describes the value rather than the colour. "#C59B27" tells a user who
+/// cannot see the swatch nothing about what they are about to pick.
+///
+/// The two palettes share this table. Their names overlap by design: 파랑 appears in both, but the
+/// grids never appear on the same screen, and inventing 파랑2 to keep the keys distinct would make
+/// the reading worse to solve a problem nobody has. An unlisted value falls back to the hex, so
+/// adding a swatch degrades the label rather than losing it.
+enum ColorNames {
+    static func of(_ hex: UInt32) -> String {
+        names[hex] ?? String(format: "#%06X", hex)
+    }
+
+    private static let names: [UInt32: String] = [
+        // Palette.accentOptions
+        0xC59B27: "골드", 0xB4863A: "브론즈", 0x8C7A4B: "카키", 0x2563EB: "파랑",
+        0x0D9488: "청록", 0x059669: "초록", 0xEA580C: "주황", 0xDC2626: "빨강",
+        0x7C3AED: "보라",
+        // CategoryStyle.colors
+        0x4F46E5: "남보라", 0x3B82F6: "파랑", 0x0EA5E9: "하늘", 0x14B8A6: "청록",
+        0x10B981: "초록", 0x84CC16: "연두", 0xF59E0B: "노랑", 0xF97316: "주황",
+        0xEF4444: "빨강", 0xEC4899: "분홍", 0xA855F7: "보라", 0x6B7280: "회색",
+    ]
+}
+
 enum Metrics {
     /// Every screen body is inset by this much; the design uses it on all six frames.
     static let screenPadding: CGFloat = 20

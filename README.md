@@ -105,7 +105,9 @@ Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 �
 
 **App Groups**는 유료 개발자 프로그램에서만 쓸 수 있습니다. 서명 후 세 타겟의 Signing & Capabilities에
 `group.com.davidjeong.ledger`가 체크되어 있는지 확인하세요. 없으면 저장소를 열지 못해 앱이 메모리 모드로
-떨어지고, 기록한 내역이 남지 않습니다.
+떨어지고, 기록한 내역이 남지 않습니다. 이 상태에서는 앱 상단에 빨간 배너가 뜨고 공유 익스텐션은 저장을
+거부합니다 — 화면상으로는 전부 정상으로 보이는데 앱을 닫으면 한 달치가 사라지는 것이 가장 나쁜 결과라
+`LedgerStore.isEphemeral`을 눈에 보이게 했습니다.
 
 Xcode Cloud도 같은 이유로 클론 직후에는 프로젝트가 없으므로, `ci_scripts/ci_post_clone.sh`가
 `xcodegen generate`를 대신 실행합니다.

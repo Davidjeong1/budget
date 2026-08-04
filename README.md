@@ -142,17 +142,34 @@ FASTLANE_TEAM_ID=ABCD123456 fastlane beta   # 아카이브 후 TestFlight 업로
 두 레인 모두 `xcodegen generate`를 먼저 돌립니다. `beta`는 빌드 번호를 타임스탬프로 채우는데,
 App Store Connect가 한 번 받은 번호를 다시 받지 않기 때문입니다.
 
-**아카이브는 현행 Xcode로 해야 합니다.** Apple은 요구 SDK보다 낮은 버전으로 만든 바이너리를 거부하는데,
-그 사실을 `ITMS-90111`로 알려 주는 시점이 업로드와 처리가 다 끝나고 심사에 넣은 뒤입니다 — 빌드
-202608031815이 이렇게 반려됐습니다. 아카이브 내용에는 아무 문제가 없고 만든 툴체인이 낡았을 뿐이라,
-소스를 고쳐서는 없어지지 않습니다. `beta`는 아카이브 전에 무엇으로 빌드하는지 찍고, Command Line
-Tools를 가리키고 있으면 거기서 멈춥니다:
+**아카이브는 현행 Xcode로, 그리고 현행 iOS SDK로 해야 합니다.** 둘은 별개입니다 — Xcode 16부터
+iOS 플랫폼은 Xcode와 따로 받는 구성 요소라, Xcode를 최신으로 올려도 SDK는 이전 버전이 그대로 남아
+선택됩니다. 빌드 202608031815과 202608041848이 이것으로 반려됐습니다. 둘 다 그날의 최신 Xcode
+26.6으로 만들었지만 링크된 SDK는 iPhoneOS **26.5**였고, `ITMS-90111`의 문구는 "latest Xcode
+**and SDK**"입니다.
+
+반려 시점이 특히 나쁩니다. 업로드도 처리도 다 지나가고 심사에 넣은 뒤에야 옵니다. 아카이브 내용에는
+문제가 없고 만든 툴체인만 낡은 것이라, 소스를 고쳐서는 없어지지 않습니다.
+
+SDK가 뒤처져 있으면:
+
+```bash
+xcodebuild -downloadPlatform iOS          # 또는 Xcode → Settings → Components → iOS
+xcrun --sdk iphoneos --show-sdk-version   # Xcode 버전대와 맞는지 확인
+```
+
+`beta`는 아카이브 전에 무엇으로 빌드하는지 찍고, SDK가 Xcode보다 뒤처져 있거나 `xcode-select`이
+Command Line Tools를 가리키고 있으면 거기서 멈춥니다:
 
 ```bash
 xcode-select -p                          # /Applications/Xcode.app/... 을 가리켜야 합니다
 xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version  # 요구 버전은 developer.apple.com/news/releases
 ```
+
+SDK가 Xcode보다 뒤처졌다는 판단은 위 두 번의 반려에서 추론한 것이지 Apple이 문서로 밝힌 규칙은
+아닙니다. 틀렸다고 보시면 `FASTLANE_ALLOW_SDK_BEHIND_XCODE=1`로 넘길 수 있습니다 — 잘못된 추론이
+릴리스를 막는 일은 없어야 하니까요.
 
 버전 하한은 코드에 박아 두지 않았습니다 — Apple이 해마다 올리므로 적어 두는 순간 틀리기 시작합니다.
 강제하려면 `FASTLANE_MINIMUM_IOS_SDK=26.0 fastlane beta`처럼 넘기세요.

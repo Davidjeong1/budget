@@ -30,6 +30,15 @@ struct AddTransactionView: View {
     @State private var didLoad = false
     @State private var isImportingMessage = false
 
+    /// The latest date the picker offers. Money is recorded after it moves, so a later one is
+    /// always a slip — and one dropped into the running month distorts the pace projection, which
+    /// divides the month's spending by the days elapsed *so far* and would read a payment dated
+    /// next week as money already gone.
+    ///
+    /// Frozen when the screen opens rather than read on every redraw, so the bound does not creep
+    /// forward underneath a picker the user is already holding open.
+    @State private var latestSelectableDate = Date.now
+
     /// Which field holds the keyboard, so the 완료 accessory can hand it back. Every text field is
     /// tracked rather than just 금액: the accessory rides whichever keyboard is up, and a return key
     /// on its own is not a way out anyone finds.
@@ -270,7 +279,7 @@ struct AddTransactionView: View {
             }
 
             fieldRow(title: "날짜") {
-                DatePicker("날짜", selection: $occurredAt)
+                DatePicker("날짜", selection: $occurredAt, in: ...latestSelectableDate)
                     .labelsHidden()
                     .datePickerStyle(.compact)
             }
@@ -330,6 +339,9 @@ struct AddTransactionView: View {
         isExpense = editing.isExpense
         categoryRaw = editing.categoryRaw
         occurredAt = editing.occurredAt
+        // A row that already carries a later date — filed before this bound existed — has to stay
+        // selectable, or opening it to fix a typo in the memo would move its date to today.
+        latestSelectableDate = max(latestSelectableDate, editing.occurredAt)
         didChooseCategory = true
     }
 

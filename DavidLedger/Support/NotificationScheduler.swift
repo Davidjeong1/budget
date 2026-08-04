@@ -40,24 +40,43 @@ enum NotificationScheduler {
 
     private static let alertedMonthsKey = "notifications.alertedBudgetMonths"
 
+    /// Fixed-width UTC stamps, which is what lets the set be sorted as plain strings below. The
+    /// value is only ever compared against itself, so the zone it renders in does not matter as
+    /// long as it is the same one every time — a floating `.current` would produce two different
+    /// keys for one month if the user crossed a time zone.
+    private static let monthKeyFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
+
+    /// How many months of history the set keeps. It is only ever consulted for the month being
+    /// saved into, so older entries answer nothing — and without a bound the list grows for the
+    /// life of the install.
+    private static let alertedMonthsKept = 24
+
     /// Fires once when a month's spending first crosses 90% of its budget.
     ///
     /// The set of already-alerted months is kept in UserDefaults rather than inferred from
     /// `deliveredNotifications()`, which empties as soon as the user clears Notification Center
     /// and would let the alert fire again on every subsequent save.
+    ///
+    /// In the group suite with every other preference, not `.standard`. Nothing outside the app
+    /// writes this today, but a ledger split across two suites is a trap for whoever adds the next
+    /// extension — and the group is where a reader would look for it.
     static func notifyBudgetThresholdIfNeeded(
         monthStart: Date,
         percent: Int,
         enabled: Bool,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = AppGroup.defaults
     ) async {
         guard enabled, percent >= 90 else { return }
 
-        let monthKey = ISO8601DateFormatter().string(from: monthStart)
+        let monthKey = monthKeyFormatter.string(from: monthStart)
         var alerted = Set(defaults.stringArray(forKey: alertedMonthsKey) ?? [])
         guard !alerted.contains(monthKey), await requestAuthorization() else { return }
         alerted.insert(monthKey)
-        defaults.set(Array(alerted), forKey: alertedMonthsKey)
+        defaults.set(Array(alerted.sorted().suffix(alertedMonthsKept)), forKey: alertedMonthsKey)
 
         let center = UNUserNotificationCenter.current()
         let identifier = budgetAlertPrefix + monthKey

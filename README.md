@@ -157,6 +157,29 @@ xcrun --sdk iphoneos --show-sdk-version  # 요구 버전은 developer.apple.com/
 버전 하한은 코드에 박아 두지 않았습니다 — Apple이 해마다 올리므로 적어 두는 순간 틀리기 시작합니다.
 강제하려면 `FASTLANE_MINIMUM_IOS_SDK=26.0 fastlane beta`처럼 넘기세요.
 
+**업로드 자격 증명도 따로 필요합니다.** `upload_to_testflight`가 내부에서 쓰는 altool은 fastlane이
+여는 App Store Connect 세션과 별개로 인증합니다. 그래서 "Login successful"이 찍혀도 업로드가 된다는
+뜻이 아니고, 자격 증명이 없으면 아카이브·서명이 다 끝난 뒤에야 `-22938`로 떨어집니다. `beta`는 이것도
+아카이브 전에 확인합니다. 둘 중 하나를 넘기세요:
+
+```bash
+# 1. App Store Connect API 키 — 2FA 프롬프트가 없고 세션이 만료되지 않아 이쪽을 권합니다.
+#    App Store Connect → 사용자 및 액세스 → 통합 → App Store Connect API 에서 발급합니다.
+export ASC_KEY_ID=XXXXXXXXXX
+export ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ASC_KEY_PATH=~/private_keys/AuthKey_XXXXXXXXXX.p8
+
+# 2. 앱 전용 암호 — account.apple.com → 로그인 및 보안 → 앱 전용 암호.
+#    계정 비밀번호는 받지 않습니다. 그게 -22938이 말하는 내용입니다.
+export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+```
+
+이미 만들어 둔 `.ipa`가 있으면 다시 빌드하지 않고 그것만 올릴 수 있습니다:
+
+```bash
+fastlane run upload_to_testflight ipa:DavidLedger.ipa skip_waiting_for_build_processing:true
+```
+
 Xcode Cloud로 빌드할 때는 이 검사가 걸리지 않습니다. 그쪽 Xcode 버전은 저장소가 아니라 워크플로
 설정에 있으니, App Store Connect → Xcode Cloud → 워크플로에서 직접 올려야 합니다.
 

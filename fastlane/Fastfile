@@ -63,9 +63,57 @@ platform :ios do
     end
   end
 
+  # altool authenticates on its own, separately from the App Store Connect session fastlane opens
+  # for everything else — so the "Login successful" printed a few lines before the upload says
+  # nothing about whether the upload can happen. Without credentials it archives, exports, signs,
+  # and only then fails with -22938 and "Could not determine provider public id".
+  #
+  # Two ways to give it credentials:
+  #
+  #   1. An App Store Connect API key. Preferred: no 2FA prompt, no session to expire, and it is
+  #      the only one that works unattended.
+  #        export ASC_KEY_ID=XXXXXXXXXX
+  #        export ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  #        export ASC_KEY_PATH=~/private_keys/AuthKey_XXXXXXXXXX.p8
+  #      Issued in App Store Connect → 사용자 및 액세스 → 통합 → App Store Connect API.
+  #
+  #   2. An app-specific password for the Apple ID in Appfile.
+  #        export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+  #      Generated at account.apple.com → 로그인 및 보안 → 앱 전용 암호. The account password itself
+  #      does not work here, which is what -22938 is saying.
+  #
+  # Returns the key for upload_to_testflight, or nil to let it fall back to the password.
+  private_lane :upload_credentials do
+    key_id = ENV["ASC_KEY_ID"]
+    issuer_id = ENV["ASC_ISSUER_ID"]
+    key_path = ENV["ASC_KEY_PATH"]
+
+    if key_id && issuer_id && key_path
+      next app_store_connect_api_key(
+        key_id: key_id,
+        issuer_id: issuer_id,
+        key_filepath: File.expand_path(key_path)
+      )
+    end
+
+    if ENV["FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD"].to_s.empty?
+      UI.user_error!(
+        "업로드 자격 증명이 없습니다. 지금 아카이브해도 업로드 직전에 실패합니다.\n" \
+        "  API 키:   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH\n" \
+        "  앱 암호:  FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD\n" \
+        "둘 중 하나를 환경변수로 넘기세요. 자세한 설명은 Fastfile 주석에 있습니다."
+      )
+    end
+
+    nil
+  end
+
   desc "아카이브 후 TestFlight 업로드"
   lane :beta do
+    # Both checks run before the archive on purpose. Each of them describes a failure that
+    # otherwise surfaces only after the slow part is already done.
     verify_toolchain
+    api_key = upload_credentials
 
     # App Store Connect rejects a build number it has seen before, and the one in project.yml is
     # a constant. A timestamp is always larger than the last one and needs nothing checked in.
@@ -81,6 +129,9 @@ platform :ios do
     )
 
     upload_to_testflight(
+      # nil when the app-specific password is being used instead, which is what
+      # upload_to_testflight falls back to on its own.
+      api_key: api_key,
       # The upload is the slow part; waiting on Apple's processing afterwards can take half an hour
       # and tells us nothing we cannot read in App Store Connect.
       skip_waiting_for_build_processing: true

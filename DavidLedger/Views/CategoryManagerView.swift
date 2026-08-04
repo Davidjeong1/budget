@@ -10,6 +10,8 @@ struct CategoryManagerView: View {
     @Query private var customCategories: [CustomCategory]
 
     @State private var editor: Editor?
+    /// The name of an archived category whose restore was refused, so the alert can say which one.
+    @State private var blockedRestoreName: String?
 
     private enum Editor: Identifiable {
         case new
@@ -55,6 +57,18 @@ struct CategoryManagerView: View {
                     Button { editor = .new } label: { Image(systemName: "plus") }
                         .accessibilityLabel("카테고리 추가")
                 }
+            }
+            .alert(
+                "복원할 수 없습니다",
+                isPresented: Binding(
+                    get: { blockedRestoreName != nil },
+                    set: { if !$0 { blockedRestoreName = nil } }
+                ),
+                presenting: blockedRestoreName
+            ) { _ in
+                Button("확인", role: .cancel) {}
+            } message: { name in
+                Text("'\(name)'와 같은 이름의 카테고리가 이미 있습니다. 그 카테고리의 이름을 먼저 바꾼 뒤 복원해 주세요.")
             }
             .sheet(item: $editor) { destination in
                 switch destination {
@@ -197,7 +211,18 @@ struct CategoryManagerView: View {
         withAnimation { category.isArchived = true }
     }
 
+    /// The duplicate-name check the editor runs only looks at categories that are not archived —
+    /// which is right, because an archived one is not offered anywhere. But it means the name of an
+    /// archived category is free to take, and taking it makes this restore produce two cards
+    /// reading 반려동물 side by side in the picker with nothing to tell them apart.
+    ///
+    /// Refused rather than renamed on the way back in: the name is the user's, and picking a new
+    /// one for them is not this button's decision.
     private func restore(_ category: CustomCategory) {
+        guard !catalog.nameIsTaken(category.name, excluding: category.raw) else {
+            blockedRestoreName = category.name
+            return
+        }
         withAnimation { category.isArchived = false }
     }
 }

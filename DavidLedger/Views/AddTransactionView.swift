@@ -29,6 +29,9 @@ struct AddTransactionView: View {
     @State private var didChooseCategory = false
     @State private var didLoad = false
     @State private var isImportingMessage = false
+    /// 삭제 sits in the header, a thumb's width from 닫기, and what it destroys cannot be brought
+    /// back — a category is archived and recoverable, a transaction is gone.
+    @State private var isConfirmingDelete = false
 
     /// The latest date the picker offers. Money is recorded after it moves, so a later one is
     /// always a slip — and one dropped into the running month distorts the pace projection, which
@@ -103,6 +106,16 @@ struct AddTransactionView: View {
         }
         .onAppear(perform: loadIfNeeded)
         .sheet(isPresented: $isImportingMessage) { MessageImportSheet(onApply: apply) }
+        .confirmationDialog(
+            "내역을 삭제할까요?",
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive, action: deleteAndClose)
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("삭제한 내역은 되돌릴 수 없습니다.")
+        }
         .onChange(of: isExpense) { _, expense in
             // The two modes offer different cards, so keep the selection inside the offered set —
             // not `categories`, which always contains the current selection by construction.
@@ -140,7 +153,7 @@ struct AddTransactionView: View {
             Spacer()
 
             if isEditing {
-                Button("삭제", role: .destructive, action: deleteAndClose)
+                Button("삭제", role: .destructive) { isConfirmingDelete = true }
                     .font(.system(size: 14, weight: .medium))
             } else {
                 // Only when adding: an imported message would overwrite the row being edited.

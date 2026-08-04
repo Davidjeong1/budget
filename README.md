@@ -110,6 +110,18 @@ Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 �
 Xcode Cloud도 같은 이유로 클론 직후에는 프로젝트가 없으므로, `ci_scripts/ci_post_clone.sh`가
 `xcodegen generate`를 대신 실행합니다.
 
+### 개인정보 보호 매니페스트
+
+세 타겟에 각각 `PrivacyInfo.xcprivacy`가 있고, 셋 다 `UserDefaults`를 필수 사유 API로 선언합니다.
+앱 번들과 `PlugIns/` 안의 익스텐션은 별개의 번들이라 검사가 번들마다 돌기 때문에, 앱 쪽 한 장으로는
+익스텐션이 덮이지 않습니다. 파일은 각 타겟 디렉터리에 두면 XcodeGen이 리소스로 잡아 번들 루트에
+복사합니다.
+
+**필수 사유 API를 새로 쓰기 시작하면 해당 타겟의 매니페스트에도 추가해야 합니다.** 빠뜨려도 빌드와
+업로드는 통과하고, 심사 단계에서 `ITMS-91053`과 함께 "잘못된 바이너리"로 돌아옵니다. 지금 걸리는
+것은 `UserDefaults`뿐이지만, 파일 타임스탬프(`creationDate`·`modificationDate`)나 디스크 여유
+공간, `systemUptime`을 읽게 되면 각각 별도 항목이 필요합니다.
+
 도메인 로직만 검증하려면:
 
 ```bash

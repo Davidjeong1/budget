@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple의 필수 사유 API 선언. 2024년 봄부터 이 파일 없이 UserDefaults 같은 API를 쓰면 업로드된
+  빌드가 심사에서 "잘못된 바이너리"로 돌아옵니다(ITMS-91053).
+
+  가계부는 기기 밖으로 아무것도 보내지 않으므로 수집 항목과 추적 도메인은 비어 있습니다. 비어 있는
+  것과 선언하지 않은 것은 다릅니다 — 검사는 파일의 존재를 봅니다.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- CA92.1 — 앱 자신만 읽고 쓰는 값. NotificationScheduler가 이미 알린 달을
+				     UserDefaults.standard에 기록합니다. -->
+				<string>CA92.1</string>
+				<!-- 1C8F.1 — 같은 App Group에 속한 앱·익스텐션이 함께 읽고 쓰는 값.
+				     AppSettings가 group.com.davidjeong.ledger 스위트를 씁니다. -->
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

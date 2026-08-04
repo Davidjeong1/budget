@@ -142,6 +142,24 @@ FASTLANE_TEAM_ID=ABCD123456 fastlane beta   # 아카이브 후 TestFlight 업로
 두 레인 모두 `xcodegen generate`를 먼저 돌립니다. `beta`는 빌드 번호를 타임스탬프로 채우는데,
 App Store Connect가 한 번 받은 번호를 다시 받지 않기 때문입니다.
 
+**아카이브는 현행 Xcode로 해야 합니다.** Apple은 요구 SDK보다 낮은 버전으로 만든 바이너리를 거부하는데,
+그 사실을 `ITMS-90111`로 알려 주는 시점이 업로드와 처리가 다 끝나고 심사에 넣은 뒤입니다 — 빌드
+202608031815이 이렇게 반려됐습니다. 아카이브 내용에는 아무 문제가 없고 만든 툴체인이 낡았을 뿐이라,
+소스를 고쳐서는 없어지지 않습니다. `beta`는 아카이브 전에 무엇으로 빌드하는지 찍고, Command Line
+Tools를 가리키고 있으면 거기서 멈춥니다:
+
+```bash
+xcode-select -p                          # /Applications/Xcode.app/... 을 가리켜야 합니다
+xcodebuild -version
+xcrun --sdk iphoneos --show-sdk-version  # 요구 버전은 developer.apple.com/news/releases
+```
+
+버전 하한은 코드에 박아 두지 않았습니다 — Apple이 해마다 올리므로 적어 두는 순간 틀리기 시작합니다.
+강제하려면 `FASTLANE_MINIMUM_IOS_SDK=26.0 fastlane beta`처럼 넘기세요.
+
+Xcode Cloud로 빌드할 때는 이 검사가 걸리지 않습니다. 그쪽 Xcode 버전은 저장소가 아니라 워크플로
+설정에 있으니, App Store Connect → Xcode Cloud → 워크플로에서 직접 올려야 합니다.
+
 `bundle exec`는 쓰지 마세요 — macOS 기본 Ruby 2.6에는 `fastlane init`이 적어 둔 bundler 버전이
 없어서 실행 전에 실패합니다.
 

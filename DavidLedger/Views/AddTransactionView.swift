@@ -112,6 +112,8 @@ struct AddTransactionView: View {
             titleVisibility: .visible
         ) {
             Button("삭제", role: .destructive, action: deleteAndClose)
+            // Intentionally empty. A `.cancel` button dismisses the dialog itself, and backing out
+            // of a delete leaves the screen exactly as it was — there is no state to undo.
             Button("취소", role: .cancel) {}
         } message: {
             Text("삭제한 내역은 되돌릴 수 없습니다.")

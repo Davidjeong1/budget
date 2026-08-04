@@ -160,6 +160,9 @@ struct TransactionListView: View {
                 deleteCandidate = nil
                 delete(transaction)
             }
+            // Intentionally empty. A `.cancel` button dismisses the dialog, and dismissal already
+            // clears `deleteCandidate` through the binding above — doing it here as well would be
+            // the same write twice.
             Button("취소", role: .cancel) {}
         } message: { transaction in
             Text("\(transaction.merchant) · \(CurrencyFormatter.signedString(from: transaction.signedAmount))\n삭제한 내역은 되돌릴 수 없습니다.")

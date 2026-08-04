@@ -66,6 +66,9 @@ struct CategoryManagerView: View {
                 ),
                 presenting: blockedRestoreName
             ) { _ in
+                // Intentionally empty. The alert only reports why the restore was refused, so
+                // acknowledging it has nothing to do beyond closing — which `.cancel` does, and
+                // which clears `blockedRestoreName` through the binding above.
                 Button("확인", role: .cancel) {}
             } message: { name in
                 Text("'\(name)'와 같은 이름의 카테고리가 이미 있습니다. 그 카테고리의 이름을 먼저 바꾼 뒤 복원해 주세요.")

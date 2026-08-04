@@ -125,6 +125,14 @@ struct ShareImportView: View {
                 Spacer()
             }
 
+            // Up front rather than only on tapping 저장, so the user does not correct the merchant
+            // name first and learn afterwards that none of it can be kept.
+            if LedgerStore.isEphemeral {
+                Text("저장소를 열지 못했습니다. 여기서 저장해도 기록이 남지 않습니다.")
+                    .font(.captionSmall)
+                    .foregroundStyle(Palette.expense)
+            }
+
             if message.isCancellation {
                 Text("취소 문자로 보입니다. 지출로 저장되니 앱에서 확인해 주세요.")
                     .font(.captionSmall)
@@ -150,6 +158,14 @@ struct ShareImportView: View {
 
     private func save() {
         guard let parsed else { return }
+
+        // An in-memory store accepts the insert and reports a clean save, then goes away with the
+        // extension process a second later. Reporting success for a write that is already lost is
+        // worse than refusing it: the user closes the sheet believing the expense is recorded.
+        guard !LedgerStore.isEphemeral else {
+            saveError = "저장소를 열지 못했습니다. 지금 저장하면 기록이 남지 않으니 앱에서 직접 추가해 주세요."
+            return
+        }
 
         let name = merchant.trimmingCharacters(in: .whitespaces)
         let transaction = Transaction(

@@ -6,9 +6,19 @@ enum LedgerStore {
     /// One container per process. `static let` is lazy and runs its initialiser exactly once.
     static let shared: ModelContainer = makeContainer()
 
-    /// True when the on-disk store could not be opened and the app is running against memory, so
-    /// the UI can warn that nothing is being saved.
-    private(set) static var isEphemeral = false
+    /// True when the on-disk store could not be opened and the app is running against memory —
+    /// every write is discarded when the process exits, so the UI says so rather than letting the
+    /// user record a month of spending into nothing.
+    ///
+    /// Reading this builds the container if it has not been built yet. The flag is only decided
+    /// inside `makeContainer()`, so a caller that asks before anything has touched `shared` would
+    /// otherwise be told `false` no matter what state the store is in.
+    static var isEphemeral: Bool {
+        _ = shared
+        return didFallBackToMemory
+    }
+
+    private static var didFallBackToMemory = false
 
     private static func makeContainer() -> ModelContainer {
         // In the app group container rather than the app's own, so the share extension — a separate
@@ -22,7 +32,7 @@ enum LedgerStore {
         }
         // A corrupt store should not be a launch crash: fall back to memory so the ledger still
         // opens and the user can see what state it is in.
-        isEphemeral = true
+        didFallBackToMemory = true
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         guard let fallback = try? ModelContainer(
             for: Transaction.self, Budget.self, CustomCategory.self,

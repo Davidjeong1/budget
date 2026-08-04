@@ -1,6 +1,28 @@
 import SwiftUI
 import LocalAuthentication
 
+/// What the app switcher gets to see while 생체 인증 사용 is on.
+///
+/// Deliberately not the lock screen: this is drawn over a window that is on its way out, so it has
+/// no buttons to press and nothing to authenticate. It only has to be opaque and to look like the
+/// app rather than a blank rectangle.
+struct PrivacyCover: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(Palette.accent)
+
+            Text("다비드 가계부")
+                .font(.screenTitle)
+                .foregroundStyle(Palette.textPrimary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Palette.background)
+        .ignoresSafeArea()
+    }
+}
+
 /// Covers the ledger until the user authenticates, when 생체 인증 사용 is on.
 struct LockScreen: View {
     let onUnlock: () -> Void
@@ -39,10 +61,22 @@ struct LockScreen: View {
 
     private func authenticate() {
         guard !isAuthenticating else { return }
-        isAuthenticating = true
 
         let context = LAContext()
         context.localizedCancelTitle = "취소"
+
+        // Without this check the lock has no way out. `deviceOwnerAuthentication` needs a device
+        // passcode, so a user who turns the passcode off after enabling the lock can no longer
+        // satisfy it: every attempt fails the same way, 잠금 해제 is the only control on the screen,
+        // and the ledger behind it is unreachable for good. 설정 already refuses to switch the lock
+        // on when the policy cannot be evaluated, so it must not stay on once that becomes true.
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
+            AppSettings.shared.biometricLockEnabled = false
+            onUnlock()
+            return
+        }
+
+        isAuthenticating = true
         // deviceOwnerAuthentication rather than biometrics-only, so a passcode still works when
         // Face ID fails or is unavailable.
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "가계부를 열려면 인증이 필요합니다") { success, _ in

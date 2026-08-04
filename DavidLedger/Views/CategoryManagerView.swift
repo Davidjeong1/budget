@@ -10,6 +10,8 @@ struct CategoryManagerView: View {
     @Query private var customCategories: [CustomCategory]
 
     @State private var editor: Editor?
+    /// The name of an archived category whose restore was refused, so the alert can say which one.
+    @State private var blockedRestoreName: String?
 
     private enum Editor: Identifiable {
         case new
@@ -55,6 +57,21 @@ struct CategoryManagerView: View {
                     Button { editor = .new } label: { Image(systemName: "plus") }
                         .accessibilityLabel("카테고리 추가")
                 }
+            }
+            .alert(
+                "복원할 수 없습니다",
+                isPresented: Binding(
+                    get: { blockedRestoreName != nil },
+                    set: { if !$0 { blockedRestoreName = nil } }
+                ),
+                presenting: blockedRestoreName
+            ) { _ in
+                // Intentionally empty. The alert only reports why the restore was refused, so
+                // acknowledging it has nothing to do beyond closing — which `.cancel` does, and
+                // which clears `blockedRestoreName` through the binding above.
+                Button("확인", role: .cancel) {}
+            } message: { name in
+                Text("'\(name)'와 같은 이름의 카테고리가 이미 있습니다. 그 카테고리의 이름을 먼저 바꾼 뒤 복원해 주세요.")
             }
             .sheet(item: $editor) { destination in
                 switch destination {
@@ -197,7 +214,18 @@ struct CategoryManagerView: View {
         withAnimation { category.isArchived = true }
     }
 
+    /// The duplicate-name check the editor runs only looks at categories that are not archived —
+    /// which is right, because an archived one is not offered anywhere. But it means the name of an
+    /// archived category is free to take, and taking it makes this restore produce two cards
+    /// reading 반려동물 side by side in the picker with nothing to tell them apart.
+    ///
+    /// Refused rather than renamed on the way back in: the name is the user's, and picking a new
+    /// one for them is not this button's decision.
     private func restore(_ category: CustomCategory) {
+        guard !catalog.nameIsTaken(category.name, excluding: category.raw) else {
+            blockedRestoreName = category.name
+            return
+        }
         withAnimation { category.isArchived = false }
     }
 }
@@ -390,7 +418,8 @@ private struct CategoryEditorSheet: View {
                             )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(symbol)
+                    .accessibilityLabel(CategoryStyle.label(forSymbol: symbol))
+                    .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
                 }
             }
         }
@@ -414,7 +443,8 @@ private struct CategoryEditorSheet: View {
                             )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(String(format: "#%06X", hex))
+                    .accessibilityLabel(ColorNames.of(hex))
+                    .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
                 }
             }
         }
@@ -439,6 +469,24 @@ enum CategoryStyle {
         "house.fill", "tag.fill", "gift.fill", "heart.fill", "cross.case.fill",
         "book.fill", "graduationcap.fill", "pawprint.fill", "gamecontroller.fill", "airplane",
         "dumbbell.fill", "scissors", "wrench.and.screwdriver.fill", "creditcard.fill", "wonsign.circle.fill",
+    ]
+
+    /// What each glyph is called out loud. An SF Symbol name is an asset identifier, not a
+    /// description — VoiceOver reading "cart dot fill" names the file rather than the picture, and
+    /// the grid is twenty of them in a row.
+    ///
+    /// Kept beside `symbols` rather than folded into it so the array stays a plain `[String]`: it is
+    /// the stored value, and `CustomCategory.symbolName` holds one of these strings.
+    static func label(forSymbol symbol: String) -> String { symbolLabels[symbol] ?? symbol }
+
+    private static let symbolLabels: [String: String] = [
+        "cart.fill": "장바구니", "fork.knife": "식사", "cup.and.saucer.fill": "커피",
+        "bus.fill": "버스", "car.fill": "자동차", "house.fill": "집", "tag.fill": "가격표",
+        "gift.fill": "선물", "heart.fill": "하트", "cross.case.fill": "의료", "book.fill": "책",
+        "graduationcap.fill": "학사모", "pawprint.fill": "발자국", "gamecontroller.fill": "게임",
+        "airplane": "비행기", "dumbbell.fill": "운동", "scissors": "가위",
+        "wrench.and.screwdriver.fill": "공구", "creditcard.fill": "신용카드",
+        "wonsign.circle.fill": "원화",
     ]
 
     static let colors: [UInt32] = [

@@ -15,6 +15,10 @@ struct TransactionListView: View {
     @State private var isSearching = false
     @State private var editing: Transaction?
     @State private var pendingDelete: Transaction?
+    /// The row a long press has offered to delete, held until the user confirms. A category is
+    /// deleted by archiving and can be brought back; a transaction cannot, and the app has no undo,
+    /// so the one action that destroys a record is the one that asks.
+    @State private var deleteCandidate: Transaction?
     /// The search field is the one keyboard on this screen, and the results it filters are behind it.
     @FocusState private var isSearchFocused: Bool
 
@@ -64,8 +68,22 @@ struct TransactionListView: View {
     private func performPendingDelete() {
         guard let pendingDelete else { return }
         self.pendingDelete = nil
-        withAnimation { context.delete(pendingDelete) }
+        delete(pendingDelete)
+    }
+
+    private func delete(_ transaction: Transaction) {
+        withAnimation { context.delete(transaction) }
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// `confirmationDialog` has no `item:` form, so the candidate drives a derived flag. Clearing it
+    /// on dismissal matters: a cancelled dialog that left the row behind would refuse to open again
+    /// for that same row.
+    private var isConfirmingDelete: Binding<Bool> {
+        Binding(
+            get: { deleteCandidate != nil },
+            set: { if !$0 { deleteCandidate = nil } }
+        )
     }
 
     private func matches(_ transaction: Transaction) -> Bool {
@@ -126,6 +144,28 @@ struct TransactionListView: View {
                 onSaved: { editing = nil },
                 onRequestDelete: { pendingDelete = transaction }
             )
+        }
+        // Names the row rather than asking about "이 내역": a long press lands on whichever row the
+        // thumb was over, which is not always the one the user meant.
+        .confirmationDialog(
+            "내역을 삭제할까요?",
+            isPresented: isConfirmingDelete,
+            titleVisibility: .visible,
+            presenting: deleteCandidate
+        ) { transaction in
+            // Candidate cleared before the delete, for the same reason the sheet defers its own:
+            // the dialog's message reads the row, and it must not still be pointing at a model that
+            // no longer exists while it animates away.
+            Button("삭제", role: .destructive) {
+                deleteCandidate = nil
+                delete(transaction)
+            }
+            // Intentionally empty. A `.cancel` button dismisses the dialog, and dismissal already
+            // clears `deleteCandidate` through the binding above — doing it here as well would be
+            // the same write twice.
+            Button("취소", role: .cancel) {}
+        } message: { transaction in
+            Text("\(transaction.merchant) · \(CurrencyFormatter.signedString(from: transaction.signedAmount))\n삭제한 내역은 되돌릴 수 없습니다.")
         }
         .onChange(of: month) { _, _ in
             // A category pill for a category this month has no rows in would otherwise stay
@@ -203,10 +243,7 @@ struct TransactionListView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
-                        Button("삭제", role: .destructive) {
-                            withAnimation { context.delete(transaction) }
-                            WidgetCenter.shared.reloadAllTimelines()
-                        }
+                        Button("삭제", role: .destructive) { deleteCandidate = transaction }
                     }
 
                     if index < section.rows.count - 1 {

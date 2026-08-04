@@ -105,10 +105,24 @@ Xcode에서 본인의 Apple Developer 팀을 선택해야 실기기 빌드가 �
 
 **App Groups**는 유료 개발자 프로그램에서만 쓸 수 있습니다. 서명 후 세 타겟의 Signing & Capabilities에
 `group.com.davidjeong.ledger`가 체크되어 있는지 확인하세요. 없으면 저장소를 열지 못해 앱이 메모리 모드로
-떨어지고, 기록한 내역이 남지 않습니다.
+떨어지고, 기록한 내역이 남지 않습니다. 이 상태에서는 앱 상단에 빨간 배너가 뜨고 공유 익스텐션은 저장을
+거부합니다 — 화면상으로는 전부 정상으로 보이는데 앱을 닫으면 한 달치가 사라지는 것이 가장 나쁜 결과라
+`LedgerStore.isEphemeral`을 눈에 보이게 했습니다.
 
 Xcode Cloud도 같은 이유로 클론 직후에는 프로젝트가 없으므로, `ci_scripts/ci_post_clone.sh`가
 `xcodegen generate`를 대신 실행합니다.
+
+### 개인정보 보호 매니페스트
+
+세 타겟에 각각 `PrivacyInfo.xcprivacy`가 있고, 셋 다 `UserDefaults`를 필수 사유 API로 선언합니다.
+앱 번들과 `PlugIns/` 안의 익스텐션은 별개의 번들이라 검사가 번들마다 돌기 때문에, 앱 쪽 한 장으로는
+익스텐션이 덮이지 않습니다. 파일은 각 타겟 디렉터리에 두면 XcodeGen이 리소스로 잡아 번들 루트에
+복사합니다.
+
+**필수 사유 API를 새로 쓰기 시작하면 해당 타겟의 매니페스트에도 추가해야 합니다.** 빠뜨려도 빌드와
+업로드는 통과하고, 심사 단계에서 `ITMS-91053`과 함께 "잘못된 바이너리"로 돌아옵니다. 지금 걸리는
+것은 `UserDefaults`뿐이지만, 파일 타임스탬프(`creationDate`·`modificationDate`)나 디스크 여유
+공간, `systemUptime`을 읽게 되면 각각 별도 항목이 필요합니다.
 
 도메인 로직만 검증하려면:
 
@@ -127,6 +141,47 @@ FASTLANE_TEAM_ID=ABCD123456 fastlane beta   # 아카이브 후 TestFlight 업로
 
 두 레인 모두 `xcodegen generate`를 먼저 돌립니다. `beta`는 빌드 번호를 타임스탬프로 채우는데,
 App Store Connect가 한 번 받은 번호를 다시 받지 않기 때문입니다.
+
+**아카이브는 현행 Xcode로 해야 합니다.** Apple은 요구 SDK보다 낮은 버전으로 만든 바이너리를 거부하는데,
+그 사실을 `ITMS-90111`로 알려 주는 시점이 업로드와 처리가 다 끝나고 심사에 넣은 뒤입니다 — 빌드
+202608031815이 이렇게 반려됐습니다. 아카이브 내용에는 아무 문제가 없고 만든 툴체인이 낡았을 뿐이라,
+소스를 고쳐서는 없어지지 않습니다. `beta`는 아카이브 전에 무엇으로 빌드하는지 찍고, Command Line
+Tools를 가리키고 있으면 거기서 멈춥니다:
+
+```bash
+xcode-select -p                          # /Applications/Xcode.app/... 을 가리켜야 합니다
+xcodebuild -version
+xcrun --sdk iphoneos --show-sdk-version  # 요구 버전은 developer.apple.com/news/releases
+```
+
+버전 하한은 코드에 박아 두지 않았습니다 — Apple이 해마다 올리므로 적어 두는 순간 틀리기 시작합니다.
+강제하려면 `FASTLANE_MINIMUM_IOS_SDK=26.0 fastlane beta`처럼 넘기세요.
+
+**업로드 자격 증명도 따로 필요합니다.** `upload_to_testflight`가 내부에서 쓰는 altool은 fastlane이
+여는 App Store Connect 세션과 별개로 인증합니다. 그래서 "Login successful"이 찍혀도 업로드가 된다는
+뜻이 아니고, 자격 증명이 없으면 아카이브·서명이 다 끝난 뒤에야 `-22938`로 떨어집니다. `beta`는 이것도
+아카이브 전에 확인합니다. 둘 중 하나를 넘기세요:
+
+```bash
+# 1. App Store Connect API 키 — 2FA 프롬프트가 없고 세션이 만료되지 않아 이쪽을 권합니다.
+#    App Store Connect → 사용자 및 액세스 → 통합 → App Store Connect API 에서 발급합니다.
+export ASC_KEY_ID=XXXXXXXXXX
+export ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ASC_KEY_PATH=~/private_keys/AuthKey_XXXXXXXXXX.p8
+
+# 2. 앱 전용 암호 — account.apple.com → 로그인 및 보안 → 앱 전용 암호.
+#    계정 비밀번호는 받지 않습니다. 그게 -22938이 말하는 내용입니다.
+export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+```
+
+이미 만들어 둔 `.ipa`가 있으면 다시 빌드하지 않고 그것만 올릴 수 있습니다:
+
+```bash
+fastlane run upload_to_testflight ipa:DavidLedger.ipa skip_waiting_for_build_processing:true
+```
+
+Xcode Cloud로 빌드할 때는 이 검사가 걸리지 않습니다. 그쪽 Xcode 버전은 저장소가 아니라 워크플로
+설정에 있으니, App Store Connect → Xcode Cloud → 워크플로에서 직접 올려야 합니다.
 
 `bundle exec`는 쓰지 마세요 — macOS 기본 Ruby 2.6에는 `fastlane init`이 적어 둔 bundler 버전이
 없어서 실행 전에 실패합니다.

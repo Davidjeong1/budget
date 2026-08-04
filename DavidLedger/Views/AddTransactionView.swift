@@ -29,6 +29,18 @@ struct AddTransactionView: View {
     @State private var didChooseCategory = false
     @State private var didLoad = false
     @State private var isImportingMessage = false
+    /// 삭제 sits in the header, a thumb's width from 닫기, and what it destroys cannot be brought
+    /// back — a category is archived and recoverable, a transaction is gone.
+    @State private var isConfirmingDelete = false
+
+    /// The latest date the picker offers. Money is recorded after it moves, so a later one is
+    /// always a slip — and one dropped into the running month distorts the pace projection, which
+    /// divides the month's spending by the days elapsed *so far* and would read a payment dated
+    /// next week as money already gone.
+    ///
+    /// Frozen when the screen opens rather than read on every redraw, so the bound does not creep
+    /// forward underneath a picker the user is already holding open.
+    @State private var latestSelectableDate = Date.now
 
     /// Which field holds the keyboard, so the 완료 accessory can hand it back. Every text field is
     /// tracked rather than just 금액: the accessory rides whichever keyboard is up, and a return key
@@ -94,6 +106,18 @@ struct AddTransactionView: View {
         }
         .onAppear(perform: loadIfNeeded)
         .sheet(isPresented: $isImportingMessage) { MessageImportSheet(onApply: apply) }
+        .confirmationDialog(
+            "내역을 삭제할까요?",
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive, action: deleteAndClose)
+            // Intentionally empty. A `.cancel` button dismisses the dialog itself, and backing out
+            // of a delete leaves the screen exactly as it was — there is no state to undo.
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("삭제한 내역은 되돌릴 수 없습니다.")
+        }
         .onChange(of: isExpense) { _, expense in
             // The two modes offer different cards, so keep the selection inside the offered set —
             // not `categories`, which always contains the current selection by construction.
@@ -131,7 +155,7 @@ struct AddTransactionView: View {
             Spacer()
 
             if isEditing {
-                Button("삭제", role: .destructive, action: deleteAndClose)
+                Button("삭제", role: .destructive) { isConfirmingDelete = true }
                     .font(.system(size: 14, weight: .medium))
             } else {
                 // Only when adding: an imported message would overwrite the row being edited.
@@ -270,7 +294,7 @@ struct AddTransactionView: View {
             }
 
             fieldRow(title: "날짜") {
-                DatePicker("날짜", selection: $occurredAt)
+                DatePicker("날짜", selection: $occurredAt, in: ...latestSelectableDate)
                     .labelsHidden()
                     .datePickerStyle(.compact)
             }
@@ -330,6 +354,9 @@ struct AddTransactionView: View {
         isExpense = editing.isExpense
         categoryRaw = editing.categoryRaw
         occurredAt = editing.occurredAt
+        // A row that already carries a later date — filed before this bound existed — has to stay
+        // selectable, or opening it to fix a typo in the memo would move its date to today.
+        latestSelectableDate = max(latestSelectableDate, editing.occurredAt)
         didChooseCategory = true
     }
 

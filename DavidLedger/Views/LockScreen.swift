@@ -39,10 +39,22 @@ struct LockScreen: View {
 
     private func authenticate() {
         guard !isAuthenticating else { return }
-        isAuthenticating = true
 
         let context = LAContext()
         context.localizedCancelTitle = "취소"
+
+        // Without this check the lock has no way out. `deviceOwnerAuthentication` needs a device
+        // passcode, so a user who turns the passcode off after enabling the lock can no longer
+        // satisfy it: every attempt fails the same way, 잠금 해제 is the only control on the screen,
+        // and the ledger behind it is unreachable for good. 설정 already refuses to switch the lock
+        // on when the policy cannot be evaluated, so it must not stay on once that becomes true.
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else {
+            AppSettings.shared.biometricLockEnabled = false
+            onUnlock()
+            return
+        }
+
+        isAuthenticating = true
         // deviceOwnerAuthentication rather than biometrics-only, so a passcode still works when
         // Face ID fails or is unavailable.
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "가계부를 열려면 인증이 필요합니다") { success, _ in

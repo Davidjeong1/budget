@@ -37,14 +37,17 @@ platform :ios do
   # and is what `xcode-select` quietly falls back to after an Xcode move or a system update.
   #
   # An up-to-date Xcode is not enough on its own, which is what builds 202608031815 and
-  # 202608041848 were both rejected for. Xcode 26.6 was the current release on both days — but
-  # since Xcode 16 the iOS platform is a component downloaded separately from Xcode itself, so
-  # updating the app leaves the previous SDK in place and selected. Both archives linked against
-  # iPhoneOS 26.5 under Xcode 26.6, and ITMS-90111 says "latest Xcode *and SDK*".
+  # 202608041848 were both rejected for. Xcode 26.6 (17F113) was the shipping release on both days
+  # and the iOS 26.5 SDK is the right one to pair with it — `xcodebuild -downloadPlatform iOS`
+  # offers nothing newer. Neither version number was the problem.
   #
-  # An SDK trailing its Xcode is therefore refused. FASTLANE_ALLOW_SDK_BEHIND_XCODE=1 overrides it:
-  # the rule is inferred from those two rejections rather than documented by Apple, and a wrong
-  # inference must not be the thing that stops a release.
+  # The build numbers were. Apple marks seeds with a trailing lowercase letter: the release iOS
+  # 26.5 SDK is 23F77, and both archives recorded DTSDKBuild 23F81a. ITMS-90111 asks for "the
+  # latest Xcode and SDK Release Candidates", and a seed SDK is neither.
+  #
+  # So the seed suffix is what gets refused, not the version. FASTLANE_ALLOW_SEED_SDK=1 overrides:
+  # the rule is read off two rejections rather than documented by Apple, and a wrong inference must
+  # not be the thing that stops a release.
   #
   # The SDK floor is not hardcoded. Apple raises it about once a year, and a number written here
   # would be wrong from the day they do — set FASTLANE_MINIMUM_IOS_SDK when you want the lane to
@@ -61,24 +64,22 @@ platform :ios do
 
     xcode = sh("xcodebuild -version | head -1", log: false).strip
     sdk = sh("xcrun --sdk iphoneos --show-sdk-version", log: false).strip
-    UI.important("아카이브 툴체인: #{xcode} · iOS SDK #{sdk} · #{developer_dir}")
+    sdk_build = sh("xcrun --sdk iphoneos --show-sdk-build-version", log: false).strip
+    UI.important("아카이브 툴체인: #{xcode} · iOS SDK #{sdk} (#{sdk_build}) · #{developer_dir}")
 
-    # Compared on major.minor alone. Xcode reports three components on some releases and the SDK
-    # never does, so comparing full length would call every one of those a mismatch.
-    xcode_line = xcode[/\d+(?:\.\d+)*/].to_s.split(".").first(2).join(".")
-    sdk_line = sdk.split(".").first(2).join(".")
-
-    if !xcode_line.empty? && !sdk_line.empty? &&
-       Gem::Version.new(sdk_line) < Gem::Version.new(xcode_line) &&
-       ENV["FASTLANE_ALLOW_SDK_BEHIND_XCODE"].to_s.empty?
+    # 23F77 ships; 23F81a is a seed. Apple's build numbers are <major><train><number>, and only a
+    # seed carries a lowercase letter after the number — which is the whole test.
+    if sdk_build.match?(/\d[a-z]\z/) && ENV["FASTLANE_ALLOW_SEED_SDK"].to_s.empty?
       UI.user_error!(
-        "iOS SDK #{sdk}가 Xcode #{xcode_line}보다 뒤처져 있습니다. 이 조합으로 올린 빌드는 " \
-        "ITMS-90111로 반려됐습니다 (202608031815, 202608041848).\n" \
-        "iOS 플랫폼은 Xcode와 별개로 받는 구성 요소라, Xcode만 업데이트하면 옛 SDK가 그대로 남습니다:\n" \
+        "iOS SDK #{sdk} 빌드 #{sdk_build}는 시드(베타)입니다. 끝의 소문자가 그 표시이고, 릴리스 " \
+        "빌드에는 붙지 않습니다. 시드 SDK로 만든 바이너리는 ITMS-90111로 반려됩니다 " \
+        "(202608031815, 202608041848 — 둘 다 23F81a).\n" \
+        "릴리스 플랫폼을 받으세요:\n" \
         "  xcodebuild -downloadPlatform iOS\n" \
-        "  (또는 Xcode → Settings → Components → iOS)\n" \
-        "받은 뒤 `xcrun --sdk iphoneos --show-sdk-version`이 #{xcode_line}대인지 확인하세요.\n" \
-        "이 판단이 틀렸다고 보시면 FASTLANE_ALLOW_SDK_BEHIND_XCODE=1 로 넘길 수 있습니다."
+        "  (또는 Xcode → Settings → Components — 시드 iOS 플랫폼이 있으면 지우세요)\n" \
+        "받은 뒤 `xcrun --sdk iphoneos --show-sdk-build-version`에 소문자가 없어야 합니다.\n" \
+        "베타 Xcode를 쓰고 계시면 정식 Xcode로 아카이브하세요 — 시드 SDK는 대개 거기서 딸려옵니다.\n" \
+        "이 판단이 틀렸다고 보시면 FASTLANE_ALLOW_SEED_SDK=1 로 넘길 수 있습니다."
       )
     end
 

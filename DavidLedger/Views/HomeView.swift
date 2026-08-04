@@ -101,11 +101,15 @@ struct HomeView: View {
     /// otherwise be stuck on the current month, so the arrows sit either side of the label.
     private var cardHeader: some View {
         HStack(spacing: 8) {
+            // Labelled by hand because this is not `MonthStepper` — the card draws its own smaller
+            // arrows around the month name — and a chevron with no label reads as its symbol name
+            // or as nothing at all.
             Button { month = month.previous } label: {
                 Image(systemName: "chevron.left").font(.system(size: 11, weight: .semibold))
             }
             .buttonStyle(.plain)
             .foregroundStyle(Palette.textTertiary)
+            .accessibilityLabel("이전 달")
 
             Text("\(month.monthLabel) \(budgetTarget == nil ? "지출" : "남은 예산")")
                 .font(.system(size: 14, weight: .medium))
@@ -116,6 +120,7 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(Palette.textTertiary)
+            .accessibilityLabel("다음 달")
 
             Spacer(minLength: 4)
 
@@ -225,6 +230,13 @@ struct HomeView: View {
                             .minimumScaleFactor(0.8)
                     }
                     .frame(maxWidth: .infinity)
+                    // The bar is the figure here, and a bar is a shape with no text in it — read as
+                    // it stood, the chart announced "1주 2주 3주 4주 5주" and not one amount. The
+                    // column is collapsed into a single element so the week and what was spent in
+                    // it arrive together instead of as two neighbours.
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(week.label)
+                    .accessibilityValue(CurrencyFormatter.string(from: week.total))
                 }
             }
             .frame(height: 84, alignment: .bottom)

@@ -76,6 +76,13 @@ budget/
 - **앱 아이콘**: `DavidLedger/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` 한 장만 두면 iOS가
   나머지 크기를 만들어 냅니다. 정사각형 원본이어야 하고 **알파 채널이 없어야** 합니다 — 모서리는 iOS가
   깎으므로 미리 둥글릴 필요가 없고, 투명한 픽셀이 있으면 App Store 업로드가 거부됩니다.
+
+  로고를 바꿀 때는 **Xcode의 에셋 카탈로그에 끌어다 놓으세요.** `Contents.json`이 파일명을 문자열로
+  들고 있어서, Finder에서 다른 이름의 파일을 넣으면 카탈로그는 옛 그림을 계속 가리키고 빌드는 아무 말도
+  하지 않습니다. 그리고 **커밋·푸시까지 해야 합니다** — `fastlane beta`는 디스크에 있는 것을, Xcode
+  Cloud는 GitHub에서 클론한 것을 빌드하므로 커밋하지 않은 로고는 Xcode Cloud 빌드에 들어가지 않습니다.
+  1.0.0이 예전 로고로 나간 것이 이 경우였습니다. `fastlane beta`가 아카이브 전에 두 가지를 모두
+  확인하고, 들어가는 아이콘의 크기와 지문을 찍어 줍니다.
 - **아이콘**: 디자인의 아이콘 세트를 번들에 넣지 못해 SF Symbols로 대체했습니다. 원본 에셋을 쓰려면 `Category.symbolName`과 `Tab.symbolName`을 이미지 애셋으로 교체하세요.
 - **폰트**: 디자인은 Pretendard를 쓰지만 번들되어 있지 않아 시스템 폰트에 같은 크기·굵기로 매핑했습니다. `DesignSystem.swift`의 `Font` 확장만 바꾸면 교체됩니다.
 - **색상**: Figma에 토큰 변수가 없어 원시 hex를 `Palette`에 한 번만 정의하고 나머지는 이름으로 참조합니다.

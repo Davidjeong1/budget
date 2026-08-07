@@ -169,7 +169,10 @@ platform :ios do
     upstream = sh("cd .. && git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true", log: false).strip
     unpushed = upstream.empty? ? "" : sh("cd .. && git log --oneline #{upstream}..HEAD", log: false).strip
 
-    return if dirty.empty? && unpushed.empty? && !upstream.empty?
+    # `next`, not `return` — fastlane keeps each lane as a Proc and calls it long after the
+    # Fastfile finished loading, so a `return` here raises LocalJumpError instead of leaving the
+    # lane. It would have fired on exactly the case this line exists for: a clean, pushed tree.
+    next if dirty.empty? && unpushed.empty? && !upstream.empty?
 
     complaints = []
     complaints << "커밋하지 않은 변경:\n#{dirty}" unless dirty.empty?

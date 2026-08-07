@@ -18,7 +18,12 @@ settings:
     # wrong app group — but there is no reason to make everyone choose the team by hand either.
     DEVELOPMENT_TEAM: SS447UT9GU
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "1.0.0"
+    # 1.0.0 is released. App Store Connect will not take further builds against a version that has
+    # already gone out, so shipping the corrected icon needs a version of its own.
+    MARKETING_VERSION: "1.0.1"
+    # Replaced with a timestamp before the archive — by ci_scripts/ci_post_clone.sh on Xcode Cloud,
+    # and by the fastlane beta lane locally. The constant is only what a plain `xcodegen generate`
+    # produces for local development builds, which never reach App Store Connect.
     CURRENT_PROJECT_VERSION: "1"
 
 packages:

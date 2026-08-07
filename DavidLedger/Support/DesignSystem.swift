@@ -50,16 +50,20 @@ enum Palette {
     /// The one colour the user picks. Computed rather than stored so that reading it inside a
     /// view's body registers with Observation and the screen redraws when the choice changes.
     ///
-    /// The design uses a slightly lighter gold on dark (#D4A843) than on light (#C59B27), but a
-    /// chosen accent is a single value, so it is used as-is in both.
+    /// The redesign draws the same mint (#34D399) on both surfaces, so unlike the gold it replaces
+    /// there is no light/dark pair here to collapse into one value.
     static var accent: Color {
         Color(hex: UInt32(truncatingIfNeeded: AppSettings.shared.accentColorValue))
     }
 
-    /// The accents offered in 설정 → 화면. The design's gold leads; the rest hold up against both
+    /// The accents offered in 설정 → 화면. The design's mint leads; the rest hold up against both
     /// surfaces at the same weight.
+    ///
+    /// The gold this replaced is gone from the grid. Anyone who had picked it keeps it — the stored
+    /// value is untouched and still paints the app — but no swatch will read as selected until they
+    /// choose again.
     static let accentOptions: [UInt32] = [
-        0xC59B27, 0xB4863A, 0x8C7A4B, 0x4F46E5, 0x2563EB,
+        0x34D399, 0xB4863A, 0x8C7A4B, 0x4F46E5, 0x2563EB,
         0x0D9488, 0x059669, 0xEA580C, 0xDC2626, 0x7C3AED,
     ]
 
@@ -83,7 +87,8 @@ enum Palette {
     /// than by category — one hue stepped lighter and darker — so a donut and its legend stay
     /// readable however many slices there are.
     static func accentShade(_ rank: Int) -> Color {
-        // Reproduces the design's three steps (#C59B27, #E0B354, #9E7B26) and carries on from there.
+        // Ratios, not fixed hues: they reproduced the old design's three gold steps (#C59B27,
+        // #E0B354, #9E7B26) and step the mint the same way.
         let steps: [Double] = [0, 0.28, -0.2, 0.52, -0.38, 0.14]
         return Color(
             hex: blend(
@@ -112,7 +117,7 @@ enum Palette {
 /// What the colour swatches are called out loud, for 설정 → 강조 색 and the category editor's 색상.
 ///
 /// A circle filled with a colour has no text in it, so VoiceOver reads whatever the button's label
-/// says — and a hex triplet describes the value rather than the colour. "#C59B27" tells a user who
+/// says — and a hex triplet describes the value rather than the colour. "#34D399" tells a user who
 /// cannot see the swatch nothing about what they are about to pick.
 ///
 /// The two palettes share this table. Their names overlap by design: 파랑 appears in both, but the
@@ -126,7 +131,7 @@ enum ColorNames {
 
     private static let names: [UInt32: String] = [
         // Palette.accentOptions
-        0xC59B27: "골드", 0xB4863A: "브론즈", 0x8C7A4B: "카키", 0x2563EB: "파랑",
+        0x34D399: "민트", 0xB4863A: "브론즈", 0x8C7A4B: "카키", 0x2563EB: "파랑",
         0x0D9488: "청록", 0x059669: "초록", 0xEA580C: "주황", 0xDC2626: "빨강",
         0x7C3AED: "보라",
         // CategoryStyle.colors

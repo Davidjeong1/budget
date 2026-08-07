@@ -50,8 +50,12 @@ enum Palette {
     /// The one colour the user picks. Computed rather than stored so that reading it inside a
     /// view's body registers with Observation and the screen redraws when the choice changes.
     ///
-    /// The redesign draws the same mint (#34D399) on both surfaces, so unlike the gold it replaces
-    /// there is no light/dark pair here to collapse into one value.
+    /// One value serves both appearances, because a chosen accent has no light half and dark half
+    /// — the same reason the gold before it was used as-is on both.
+    ///
+    /// Worth knowing when comparing against the design: only its dark frames carry the mint. The
+    /// light ones were left on the old gold, which reads as a frame nobody got back to rather than
+    /// an intent, so mint is used on both here.
     static var accent: Color {
         Color(hex: UInt32(truncatingIfNeeded: AppSettings.shared.accentColorValue))
     }

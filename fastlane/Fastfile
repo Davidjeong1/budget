@@ -6,6 +6,9 @@
 # Homebrew로 설치한 fastlane을 그대로 쓰면 됩니다 (`brew install fastlane`). 시스템 Ruby 2.6은
 # 최신 bundler를 들고 있지 않아 `bundle exec`가 먼저 죽습니다.
 
+require "digest"
+require "json"
+
 default_platform(:ios)
 
 platform :ios do
@@ -63,6 +66,132 @@ platform :ios do
     end
   end
 
+  # 1.0.0이 예전 로고로 나갔습니다. 아이콘은 컴파일 에러를 내지 않으므로, 잘못된 그림이 들어가 있어도
+  # 아카이브는 끝까지 성공하고 심사도 통과합니다 — 홈 화면에서 눈으로 보기 전까지 아무도 모릅니다.
+  #
+  # 그래서 두 가지를 아카이브 전에 확인합니다.
+  #
+  #   1. Contents.json이 가리키는 파일이 실제로 있는지. 카탈로그는 파일명을 문자열로 들고 있어서,
+  #      Finder에서 다른 이름의 새 로고로 바꿔 넣으면 카탈로그는 조용히 옛 파일을 계속 가리킵니다.
+  #   2. README가 요구하는 조건 — 정사각형 1024x1024, 알파 채널 없음.
+  #
+  # 그리고 지문(SHA-256 앞 8자리)과 크기를 찍습니다. "이 빌드에 들어간 로고가 어느 그림인가"를
+  # 업로드 후가 아니라 업로드 전에 답할 수 있어야 합니다.
+  private_lane :verify_app_icon do
+    catalog = "../DavidLedger/Assets.xcassets/AppIcon.appiconset"
+    contents = File.join(catalog, "Contents.json")
+    UI.user_error!("앱 아이콘 카탈로그가 없습니다: #{contents}") unless File.exist?(contents)
+
+    images = JSON.parse(File.read(contents))["images"] || []
+    filename = images.map { |image| image["filename"] }.compact.first
+    if filename.nil?
+      UI.user_error!(
+        "Contents.json에 아이콘 파일이 지정되어 있지 않습니다. 이대로 아카이브하면 아이콘 없이 나갑니다."
+      )
+    end
+
+    icon = File.join(catalog, filename)
+    unless File.exist?(icon)
+      UI.user_error!(
+        "Contents.json은 #{filename}을 가리키는데 그 파일이 없습니다.\n" \
+        "새 로고를 Finder에서 다른 이름으로 넣으면 이렇게 됩니다 — Xcode의 에셋 카탈로그에 끌어다 놓아 " \
+        "Contents.json도 같이 갱신되게 하세요."
+      )
+    end
+
+    width, height, alpha = png_geometry(icon)
+    fingerprint = Digest::SHA256.file(icon).hexdigest[0, 8]
+    UI.important("앱 아이콘: #{filename} · #{width}x#{height} · #{fingerprint}")
+
+    if width != height
+      UI.user_error!("앱 아이콘이 정사각형이 아닙니다 (#{width}x#{height}).")
+    end
+    if width != 1024
+      UI.user_error!(
+        "앱 아이콘은 1024x1024여야 하는데 #{width}x#{height}입니다. 나머지 크기는 iOS가 만들어 냅니다."
+      )
+    end
+    if alpha
+      UI.user_error!(
+        "앱 아이콘에 알파 채널이 있습니다. App Store 업로드가 거부됩니다 (ITMS-90717).\n" \
+        "투명 픽셀을 없애고 불투명 PNG로 다시 내보내세요 — 모서리는 iOS가 깎습니다."
+      )
+    end
+  end
+
+  # PNG의 IHDR만 읽습니다. 폭·높이·색상 타입이 전부 거기 있고, 팔레트 이미지의 투명도는 뒤따르는
+  # tRNS 청크가 들고 있으므로 IDAT(픽셀 데이터)이 시작되기 전까지만 훑으면 충분합니다.
+  def png_geometry(path)
+    File.open(path, "rb") do |io|
+      UI.user_error!("#{path}는 PNG가 아닙니다.") unless io.read(8) == "\x89PNG\r\n\x1a\n".b
+
+      width = height = nil
+      alpha = false
+      loop do
+        header = io.read(8)
+        break if header.nil? || header.bytesize < 8
+
+        length, type = header.unpack("Na4")
+        case type
+        when "IHDR"
+          ihdr = io.read(length)
+          width, height = ihdr.unpack("NN")
+          # 색상 타입 4는 회색+알파, 6은 RGBA. 나머지는 그 자체로는 투명도가 없습니다.
+          alpha = [4, 6].include?(ihdr.getbyte(9))
+          io.read(4)
+        when "tRNS"
+          # 팔레트/회색 이미지가 투명도를 갖는 유일한 통로.
+          alpha = true
+          break
+        when "IDAT"
+          break
+        else
+          io.read(length)
+          io.read(4)
+        end
+      end
+
+      UI.user_error!("#{path}에서 PNG 헤더를 읽지 못했습니다.") if width.nil?
+      [width, height, alpha]
+    end
+  end
+
+  # 로고가 바뀌지 않은 채 나간 두 번째 경로입니다. `fastlane beta`는 디스크에 있는 것을 아카이브하고,
+  # Xcode Cloud(`ci_scripts/ci_post_clone.sh`)는 GitHub에서 클론한 것을 빌드합니다. 둘이 다르면
+  # 어느 쪽으로 냈느냐에 따라 다른 앱이 나가고, 그 차이는 아무 데도 표시되지 않습니다.
+  #
+  # 커밋하지 않았거나 푸시하지 않은 변경이 있으면 여기서 세웁니다. 의도한 것이라면
+  # FASTLANE_ALLOW_DIRTY_RELEASE=1로 넘어갈 수 있지만, 기본값은 "저장소에서 재현되지 않는 빌드는
+  # 내지 않는다"입니다.
+  private_lane :verify_release_source do
+    dirty = sh("cd .. && git status --porcelain", log: false).strip
+    branch = sh("cd .. && git rev-parse --abbrev-ref HEAD", log: false).strip
+    upstream = sh("cd .. && git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true", log: false).strip
+    unpushed = upstream.empty? ? "" : sh("cd .. && git log --oneline #{upstream}..HEAD", log: false).strip
+
+    # `next`, not `return` — fastlane keeps each lane as a Proc and calls it long after the
+    # Fastfile finished loading, so a `return` here raises LocalJumpError instead of leaving the
+    # lane. It would have fired on exactly the case this line exists for: a clean, pushed tree.
+    next if dirty.empty? && unpushed.empty? && !upstream.empty?
+
+    complaints = []
+    complaints << "커밋하지 않은 변경:\n#{dirty}" unless dirty.empty?
+    complaints << "푸시하지 않은 커밋:\n#{unpushed}" unless unpushed.empty?
+    complaints << "#{branch}에 추적 중인 원격 브랜치가 없습니다." if upstream.empty?
+
+    if ENV["FASTLANE_ALLOW_DIRTY_RELEASE"].to_s.empty?
+      UI.user_error!(
+        "저장소에 없는 것을 아카이브하려 합니다.\n\n#{complaints.join("\n\n")}\n\n" \
+        "지금 아카이브하면 이 변경은 로컬 빌드에만 들어가고, Xcode Cloud로 낸 빌드에는 들어가지 않습니다 " \
+        "— 에셋을 바꿨을 때 특히 조용히 어긋납니다.\n" \
+        "커밋 후 `git push -u origin #{branch}` 하거나, 의도한 것이면 " \
+        "FASTLANE_ALLOW_DIRTY_RELEASE=1을 주고 다시 실행하세요."
+      )
+    end
+
+    UI.important("FASTLANE_ALLOW_DIRTY_RELEASE — 저장소와 다른 상태로 아카이브합니다:\n#{complaints.join("\n\n")}")
+  end
+
   # altool authenticates on its own, separately from the App Store Connect session fastlane opens
   # for everything else — so the "Login successful" printed a few lines before the upload says
   # nothing about whether the upload can happen. Without credentials it archives, exports, signs,
@@ -110,9 +239,11 @@ platform :ios do
 
   desc "아카이브 후 TestFlight 업로드"
   lane :beta do
-    # Both checks run before the archive on purpose. Each of them describes a failure that
-    # otherwise surfaces only after the slow part is already done.
+    # 네 가지 모두 아카이브 전에 돕니다. 하나같이, 늦게 알면 아카이브가 끝난 뒤에야 — 또는 앱이
+    # 나간 뒤에야 — 드러나는 실패입니다.
     verify_toolchain
+    verify_release_source
+    verify_app_icon
     api_key = upload_credentials
 
     # App Store Connect rejects a build number it has seen before, and the one in project.yml is

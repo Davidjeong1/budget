@@ -34,6 +34,8 @@ struct MonthlyDigest {
             .sorted { $0.total > $1.total }
     }
 
+    /// One category's spend for the month, net of its refunds — the figure a category budget is
+    /// measured against, so a cancelled payment does not leave the budget carrying it.
     func total(forRaw raw: String) -> Int {
         transactions
             .filter { $0.isExpense && $0.categoryRaw == raw }

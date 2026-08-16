@@ -58,9 +58,14 @@ struct TodayEntry: TimelineEntry {
 
         let month = MonthRange(containing: now)
         let calendar = Calendar.current
-        let todaySpend = transactions
-            .filter { $0.isExpense && calendar.isDate($0.occurredAt, inSameDayAs: now) }
-            .reduce(0) { $0 + $1.amount }
+        // Floored at zero: a day whose refunds outweigh its charges has not spent a negative amount,
+        // and the widget prints the figure unsigned, which would show the refund as money gone.
+        let todaySpend = max(
+            transactions
+                .filter { $0.isExpense && calendar.isDate($0.occurredAt, inSameDayAs: now) }
+                .reduce(0) { $0 + $1.amount },
+            0
+        )
 
         return TodayEntry(
             date: now,

@@ -48,6 +48,33 @@ final class MerchantCategoryClassifierTests: XCTestCase {
         XCTAssertEqual(MerchantCategoryClassifier.classify("KTX 서울역"), .transport)
     }
 
+    /// Card messages carry the branch inside the merchant name, so a keyword from another category
+    /// is routinely sitting in a name that a longer keyword identifies exactly. The specific one
+    /// has to win, or the purchase lands on a budget it never belonged to.
+    func testBranchSuffixDoesNotStealTheCategory() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("GS25 강남버스터미널점"), .living)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("이마트24 지하철2호선역점"), .living)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("스타벅스 고속버스터미널점"), .cafe)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("올리브영 택시승강장점"), .shopping)
+    }
+
+    /// The longer keyword wins wherever two categories both match, so the table's order is no
+    /// longer what decides the answer.
+    func testMoreSpecificKeywordWins() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("쿠팡이츠"), .food)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("쿠팡"), .living)
+        XCTAssertEqual(MerchantCategoryClassifier.classify("GS칼텍스 편의점"), .transport)
+    }
+
+    /// A row that is money out never gets an income category: 환급 filed under 급여 while the row is
+    /// still an expense counts money that came back as money spent.
+    func testExpenseSuggestionIsNeverAnIncomeCategory() {
+        XCTAssertEqual(MerchantCategoryClassifier.classify("카드 환급"), .salary)
+        XCTAssertEqual(MerchantCategoryClassifier.expenseCategory(for: "카드 환급"), .etc)
+        XCTAssertEqual(MerchantCategoryClassifier.expenseCategory(for: "스타벅스"), .cafe)
+        XCTAssertEqual(MerchantCategoryClassifier.expenseCategory(for: nil), .etc)
+    }
+
     func testUnknownAndBlankFallBackToEtc() {
         XCTAssertEqual(MerchantCategoryClassifier.classify("무슨무슨상사"), .etc)
         XCTAssertEqual(MerchantCategoryClassifier.classify(nil), .etc)

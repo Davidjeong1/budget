@@ -27,6 +27,10 @@ struct AddTransactionView: View {
     @State private var occurredAt = Date.now
     /// Set once the user picks a card, so the merchant-based suggestion stops overriding them.
     @State private var didChooseCategory = false
+    /// True when this row cancels a payment rather than making one. Saved as a negative expense so
+    /// it nets off the original inside the same category, instead of stacking a second charge on
+    /// top of it and reading as an overspend the user never made.
+    @State private var isRefund = false
     @State private var didLoad = false
     @State private var isImportingMessage = false
     /// 삭제 sits in the header, a thumb's width from 닫기, and what it destroys cannot be brought
@@ -119,6 +123,8 @@ struct AddTransactionView: View {
             Text("삭제한 내역은 되돌릴 수 없습니다.")
         }
         .onChange(of: isExpense) { _, expense in
+            // 환불 is a direction money out can take; money in has no cancellation to record here.
+            if !expense { isRefund = false }
             // The two modes offer different cards, so keep the selection inside the offered set —
             // not `categories`, which always contains the current selection by construction.
             if !offeredCategories.contains(where: { $0.raw == categoryRaw }) {
@@ -127,9 +133,10 @@ struct AddTransactionView: View {
         }
         .onChange(of: merchant) { _, name in
             guard !didChooseCategory, isExpense else { return }
-            // Only ever suggests a built-in: the classifier's keyword table has no way to know
-            // about categories the user invented.
-            let suggestion = MerchantCategoryClassifier.classify(name)
+            // Only ever suggests a built-in expense category: the classifier's keyword table has no
+            // way to know about categories the user invented, and an income category on a row that
+            // is money out would count a refund as spending.
+            let suggestion = MerchantCategoryClassifier.expenseCategory(for: name)
             if suggestion != .etc { categoryRaw = suggestion.rawValue }
         }
     }
@@ -171,7 +178,7 @@ struct AddTransactionView: View {
 
     private var amountDisplay: some View {
         VStack(spacing: 8) {
-            Text("금액 입력")
+            Text(isRefund ? "환불 금액 입력" : "금액 입력")
                 .font(.system(size: 13))
                 .foregroundStyle(Palette.textSecondary)
 
@@ -308,6 +315,22 @@ struct AddTransactionView: View {
                     .font(.system(size: 14))
                     .foregroundStyle(Palette.textPrimary)
             }
+
+            // Only for money out: a cancelled payment is still a card message and still arrives at
+            // this screen, and without somewhere to say so it can only be recorded as a second
+            // charge in the same category.
+            if isExpense {
+                fieldRow(title: "결제 취소·환불") {
+                    Toggle("결제 취소·환불", isOn: $isRefund)
+                        .labelsHidden()
+                        .tint(Palette.accent)
+                }
+
+                Text("켜면 이 금액이 같은 카테고리의 지출에서 차감됩니다.")
+                    .font(.captionSmall)
+                    .foregroundStyle(Palette.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(.horizontal, Metrics.screenPadding)
         .padding(.vertical, 12)
@@ -348,7 +371,11 @@ struct AddTransactionView: View {
         guard !didLoad else { return }
         didLoad = true
         guard let editing else { return }
-        amountDigits = String(editing.amount)
+        // A refund is stored as a negative expense, and the field behind the big figure is
+        // digits-only: without the magnitude here, opening one to fix its memo would strip the sign
+        // and save it back as a fresh charge.
+        amountDigits = String(abs(editing.amount))
+        isRefund = editing.isExpense && editing.amount < 0
         merchant = editing.merchant
         memo = editing.memo
         isExpense = editing.isExpense
@@ -371,18 +398,22 @@ struct AddTransactionView: View {
             self.merchant = merchant
         }
         if let date { occurredAt = date }
-        // A card message is always money out, including a cancellation — the sheet flags that case
-        // and leaves the correction to the user.
+        // A card message is always money out. A cancellation is money out being taken back, so it
+        // arrives as a refund rather than as a second charge against the same category.
         isExpense = true
+        isRefund = message.isCancellation
     }
 
     private func save() {
         guard canSave else { return }
         let trimmedMerchant = merchant.trimmingCharacters(in: .whitespaces)
         let trimmedMemo = memo.trimmingCharacters(in: .whitespaces)
+        // Negative for a refund: every total in the app sums this field, so the cancellation comes
+        // straight off the category it belongs to without any screen having to know about refunds.
+        let storedAmount = isExpense && isRefund ? -amount : amount
 
         if let editing {
-            editing.amount = amount
+            editing.amount = storedAmount
             editing.isExpense = isExpense
             editing.merchant = trimmedMerchant
             editing.categoryRaw = categoryRaw
@@ -393,7 +424,7 @@ struct AddTransactionView: View {
             onSaved()
         } else {
             let created = Transaction(
-                amount: amount,
+                amount: storedAmount,
                 isExpense: isExpense,
                 merchant: trimmedMerchant,
                 categoryRaw: categoryRaw,

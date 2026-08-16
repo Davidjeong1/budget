@@ -44,14 +44,33 @@ public enum MerchantCategoryClassifier {
         (.housing, ["kt", "수도"]),
     ]
 
+    /// A keyword that was found in the name: which category it points at, how long it was — which
+    /// is how specific it is — and where its category sits in the table, which only breaks ties.
+    private struct Match {
+        let category: Category
+        let length: Int
+        let rank: Int
+    }
+
+    /// Suggests a category for a merchant name.
+    ///
+    /// The longest keyword found wins, rather than whichever category the table happens to list
+    /// first. Korean card messages carry the branch inside the merchant name — "GS25 강남버스터미널점",
+    /// "올리브영 강남역점", "이마트24 지하철2호선점" — so a short keyword belonging to another category
+    /// is routinely present in a name that a longer keyword identifies exactly. Taking the first
+    /// table hit filed those purchases under 교통 and pushed whichever budget they landed on towards
+    /// an overspend that never happened.
     public static func classify(_ merchant: String?) -> Category {
         guard let merchant, !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .etc
         }
         let needle = merchant.lowercased()
 
-        for (category, words) in keywords where words.contains(where: { needle.contains($0) }) {
-            return category
+        var best: Match?
+        for (rank, entry) in keywords.enumerated() {
+            for word in entry.1 where needle.contains(word) {
+                best = better(best, Match(category: entry.0, length: word.count, rank: rank))
+            }
         }
 
         let tokens = Set(
@@ -59,9 +78,37 @@ public enum MerchantCategoryClassifier {
                 .components(separatedBy: CharacterSet.alphanumerics.inverted)
                 .filter { !$0.isEmpty }
         )
-        for (category, words) in wordKeywords where words.contains(where: { tokens.contains($0) }) {
-            return category
+        // Ranked behind the substring table, so the tie-break between two equally specific keywords
+        // stays where it was before whole-word matching existed. Length still decides first.
+        for (rank, entry) in wordKeywords.enumerated() {
+            for word in entry.1 where tokens.contains(word) {
+                best = better(
+                    best,
+                    Match(category: entry.0, length: word.count, rank: keywords.count + rank)
+                )
+            }
         }
-        return .etc
+
+        return best?.category ?? .etc
+    }
+
+    /// The suggestion for a row that is money out.
+    ///
+    /// `classify` can land on 급여: a card message mentioning 환급 or 상여 reads that way. Filing money
+    /// that came back under an income category while the row itself is still an expense counts it as
+    /// spending, which is one of the ways a category runs over a budget it never touched. Money out
+    /// never gets an income category — 기타 is the honest answer, and the user can refile it.
+    public static func expenseCategory(for merchant: String?) -> Category {
+        let suggestion = classify(merchant)
+        return suggestion.isIncome ? .etc : suggestion
+    }
+
+    /// More specific wins; equally specific falls back to table order.
+    private static func better(_ current: Match?, _ candidate: Match) -> Match {
+        guard let current else { return candidate }
+        if candidate.length != current.length {
+            return candidate.length > current.length ? candidate : current
+        }
+        return candidate.rank < current.rank ? candidate : current
     }
 }

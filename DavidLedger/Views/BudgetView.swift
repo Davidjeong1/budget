@@ -172,7 +172,9 @@ struct BudgetView: View {
         let category = catalog.category(forRaw: raw)
         let target = budget?.target(forRaw: raw) ?? 0
         let spent = digest.total(forRaw: raw)
-        let ratio = target > 0 ? Double(spent) / Double(target) : 0
+        // Refunds can take a category's net spend below zero, and a bar cannot run backwards. The
+        // gauge stops at empty while the figure beside it stays whatever the month actually netted.
+        let ratio = target > 0 ? max(Double(spent) / Double(target), 0) : 0
         let percent = Int((ratio * 100).rounded())
         // Past 90% the card turns red, matching how the design flags 83% and 96% differently.
         let isNearLimit = percent >= 90

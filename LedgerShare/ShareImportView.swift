@@ -24,11 +24,17 @@ struct ShareImportView: View {
 
     private var occurredAt: Date? { parsed?.occurredAt() }
 
-    /// The same suggestion the add screen makes, from the same classifier. Only built-in categories:
-    /// the classifier has no way to know about ones the user invented.
+    /// The same suggestion the add screen makes, from the same classifier. Only built-in expense
+    /// categories: the classifier has no way to know about ones the user invented, and a card
+    /// message is money out however much its wording reads like 급여.
     private var category: Category {
-        MerchantCategoryClassifier.classify(merchant)
+        MerchantCategoryClassifier.expenseCategory(for: merchant)
     }
+
+    /// A cancellation is the original payment being taken back, so it is stored as a negative
+    /// expense. Saving it as an ordinary one would leave the category carrying both the charge and
+    /// its cancellation — twice the money, against a budget that only ever saw it once.
+    private var isRefund: Bool { parsed?.isCancellation ?? false }
 
     var body: some View {
         NavigationStack {
@@ -77,12 +83,18 @@ struct ShareImportView: View {
     private func content(_ message: PaymentMessage) -> some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(spacing: 6) {
-                Text("지출")
+                Text(isRefund ? "결제 취소(환불)" : "지출")
                     .font(.captionSmall)
                     .foregroundStyle(Palette.textTertiary)
-                Text(CurrencyFormatter.string(from: message.amount))
-                    .font(.cardAmount)
-                    .foregroundStyle(Palette.textPrimary)
+                // Signed only for a refund, so the direction is on the screen rather than in the
+                // note below it. An ordinary charge keeps the design's unsigned figure.
+                Text(
+                    isRefund
+                        ? CurrencyFormatter.signedString(from: message.amount)
+                        : CurrencyFormatter.string(from: message.amount)
+                )
+                .font(.cardAmount)
+                .foregroundStyle(Palette.textPrimary)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 8)
@@ -134,9 +146,9 @@ struct ShareImportView: View {
             }
 
             if message.isCancellation {
-                Text("취소 문자로 보입니다. 지출로 저장되니 앱에서 확인해 주세요.")
+                Text("결제 취소 문자로 보입니다. 환불로 저장되어 \(category.label) 지출에서 차감됩니다.")
                     .font(.captionSmall)
-                    .foregroundStyle(Palette.expense)
+                    .foregroundStyle(Palette.textSecondary)
             }
 
             if let saveError {
@@ -169,7 +181,7 @@ struct ShareImportView: View {
 
         let name = merchant.trimmingCharacters(in: .whitespaces)
         let transaction = Transaction(
-            amount: parsed.amount,
+            amount: isRefund ? -parsed.amount : parsed.amount,
             isExpense: true,
             merchant: name.isEmpty ? "카드 결제" : name,
             categoryRaw: category.rawValue,

@@ -35,7 +35,9 @@ struct LedgerCSV: Transferable, Identifiable {
             rows.append(
                 [
                     formatter.string(from: transaction.occurredAt),
-                    transaction.isExpense ? "지출" : "수입",
+                    // A negative expense is a cancelled payment, and 지출 next to a minus sign reads
+                    // as an export bug rather than as a refund.
+                    transaction.isExpense ? (transaction.amount < 0 ? "환불" : "지출") : "수입",
                     Self.escape(transaction.merchant),
                     Self.escape(catalog.category(forRaw: transaction.categoryRaw).label),
                     String(transaction.amount),

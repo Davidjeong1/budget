@@ -450,7 +450,7 @@ struct AddTransactionView: View {
     private func notifyIfBudgetThresholdCrossed(including extra: Transaction? = nil) {
         guard AppSettings.shared.budgetAlertEnabled else { return }
         let month = MonthRange(containing: occurredAt)
-        guard let budget = budgets.first(where: { $0.monthStart == month.start }),
+        guard let budget = Budget.effective(for: month.start, among: budgets),
               budget.totalTarget > 0 else { return }
 
         let rows = allTransactions + (extra.map { [$0] } ?? [])

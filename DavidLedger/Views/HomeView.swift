@@ -18,7 +18,7 @@ struct HomeView: View {
     }
 
     private var budgetTarget: Int? {
-        budgets.first { $0.monthStart == month.start }.map(\.totalTarget).flatMap { $0 > 0 ? $0 : nil }
+        Budget.effective(for: month.start, among: budgets).map(\.totalTarget).flatMap { $0 > 0 ? $0 : nil }
     }
 
     var body: some View {

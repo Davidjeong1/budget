@@ -51,6 +51,19 @@ enum LedgerStore {
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
     }
+
+    /// The budget that applies to `month`, following a repeating budget from an earlier month when
+    /// the month has none of its own. Same rule as `Budget.effective(for:among:)`.
+    static func effectiveBudget(for month: MonthRange, in context: ModelContext) -> Budget? {
+        let start = month.start
+        var descriptor = FetchDescriptor<Budget>(
+            predicate: #Predicate { $0.monthStart <= start },
+            sortBy: [SortDescriptor(\.monthStart, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        guard let latest = try? context.fetch(descriptor).first else { return nil }
+        return latest.monthStart == start || latest.repeatsMonthly ? latest : nil
+    }
 }
 
 /// A calendar month. Scopes every screen's totals and drives the month stepper.

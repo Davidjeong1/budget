@@ -38,6 +38,11 @@ struct DavidLedgerApp: App {
                 if phase == .background && settings.biometricLockEnabled {
                     isUnlocked = false
                 }
+                // Leaving the app is when the user looks at the home screen, so the widget is
+                // brought up to date then, whichever screen made the last change.
+                if phase == .background {
+                    LedgerStore.saveAndReloadWidget(LedgerStore.shared.mainContext)
+                }
             }
         }
         .modelContainer(LedgerStore.shared)

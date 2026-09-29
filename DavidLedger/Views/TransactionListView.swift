@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WidgetKit
 import LedgerCore
 
 struct TransactionListView: View {
@@ -73,7 +72,7 @@ struct TransactionListView: View {
 
     private func delete(_ transaction: Transaction) {
         withAnimation { context.delete(transaction) }
-        WidgetCenter.shared.reloadAllTimelines()
+        LedgerStore.saveAndReloadWidget(context)
     }
 
     /// `confirmationDialog` has no `item:` form, so the candidate drives a derived flag. Clearing it

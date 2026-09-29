@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 enum LedgerStore {
@@ -41,6 +42,17 @@ enum LedgerStore {
             fatalError("가계부 저장소를 열지 못했습니다.")
         }
         return fallback
+    }
+
+    /// Writes pending changes to disk, then tells the widget to re-read.
+    ///
+    /// The save has to come first. The widget is another process reading the file, and the app's
+    /// context only autosaves some time later — a reload sent straight after an insert re-reads
+    /// the store before the row is in it, and nothing reloads again once autosave catches up, so
+    /// the widget kept showing the old figure until its midnight refresh.
+    static func saveAndReloadWidget(_ context: ModelContext) {
+        try? context.save()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Fetches the budget for `month`. Goes to the store rather than a `@Query` snapshot, so a

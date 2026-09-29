@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WidgetKit
 import LedgerCore
 
 struct BudgetView: View {
@@ -265,7 +264,7 @@ struct BudgetView: View {
 
     /// The widget shows this month's usage, so a changed target has to reach it.
     private func reloadWidget() {
-        WidgetCenter.shared.reloadAllTimelines()
+        LedgerStore.saveAndReloadWidget(context)
     }
 
     /// Creates the month's budget row on first write, so reading the screen never inserts one.

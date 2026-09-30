@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WidgetKit
 import LedgerCore
 
 struct BudgetView: View {
@@ -37,8 +36,15 @@ struct BudgetView: View {
         MonthlyDigest(month: month, allTransactions: allTransactions)
     }
 
+    /// This month's budget, or the repeating one it carries over from an earlier month.
     private var budget: Budget? {
-        budgets.first { $0.monthStart == month.start }
+        Budget.effective(for: month.start, among: budgets)
+    }
+
+    /// Set when the figures on screen come from an earlier month's repeating budget.
+    private var inheritedFrom: Budget? {
+        guard let budget, budget.monthStart != month.start else { return nil }
+        return budget
     }
 
     var body: some View {
@@ -48,6 +54,7 @@ struct BudgetView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
                     totalCard
+                    repeatCard
                     categoryBudgets
                 }
                 .padding(.horizontal, Metrics.screenPadding)
@@ -142,6 +149,40 @@ struct BudgetView: View {
         .buttonStyle(.plain)
     }
 
+    private var repeatCard: some View {
+        let repeats = Binding(
+            get: { budget?.repeatsMonthly ?? false },
+            set: { mutableBudget().repeatsMonthly = $0; reloadWidget() }
+        )
+
+        return VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: repeats) {
+                Text("매월 반복")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Palette.textPrimary)
+            }
+            .tint(Palette.accent)
+
+            Text(repeatCaption)
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+
+    private var repeatCaption: String {
+        if let source = inheritedFrom {
+            return "\(source.monthStart.monthLabel)에 설정한 예산을 이어서 쓰고 있어요. 여기서 바꾸면 이번 달부터 적용됩니다."
+        }
+        if budget?.repeatsMonthly == true {
+            return "다음 달부터 따로 설정하지 않은 달에는 이 예산이 그대로 적용됩니다."
+        }
+        return "켜면 이 예산을 다음 달부터 매월 자동으로 적용합니다."
+    }
+
     private var categoryBudgets: some View {
         // Sorted here rather than in `Budget`: only the catalog knows where the user's own
         // categories sit relative to the built-in ones.
@@ -223,17 +264,26 @@ struct BudgetView: View {
 
     /// The widget shows this month's usage, so a changed target has to reach it.
     private func reloadWidget() {
-        WidgetCenter.shared.reloadAllTimelines()
+        LedgerStore.saveAndReloadWidget(context)
     }
 
     /// Creates the month's budget row on first write, so reading the screen never inserts one.
+    ///
+    /// A month carrying a repeating budget over gets a copy of it, so an edit here starts from the
+    /// figures on screen and changes this month onward without touching the month it came from.
     ///
     /// Goes through the store rather than the `@Query` array: that snapshot is stale immediately
     /// after an insert, so a second edit in the same update cycle would insert a duplicate and the
     /// unique constraint would upsert away the value just saved.
     private func mutableBudget() -> Budget {
         if let existing = LedgerStore.budget(for: month, in: context) { return existing }
-        let created = Budget(monthStart: month.start, totalTarget: 0)
+        let source = LedgerStore.effectiveBudget(for: month, in: context)
+        let created = Budget(
+            monthStart: month.start,
+            totalTarget: source?.totalTarget ?? 0,
+            categoryTargets: source?.categoryTargets ?? [:],
+            repeatsMonthly: source?.repeatsMonthly ?? false
+        )
         context.insert(created)
         return created
     }

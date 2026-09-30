@@ -73,7 +73,7 @@ struct TodayEntry: TimelineEntry {
             // Through MonthlyDigest so the widget cannot disagree with the home screen about what
             // the month's spending was.
             monthSpend: MonthlyDigest(month: month, allTransactions: transactions).expenseTotal,
-            budgetTarget: LedgerStore.budget(for: month, in: context)?.totalTarget ?? 0
+            budgetTarget: LedgerStore.effectiveBudget(for: month, in: context)?.totalTarget ?? 0
         )
     }
 }

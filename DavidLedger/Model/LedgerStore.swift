@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import WidgetKit
 import LedgerCore
 
 enum LedgerStore {
@@ -43,6 +44,17 @@ enum LedgerStore {
         return fallback
     }
 
+    /// Writes pending changes to disk, then tells the widget to re-read.
+    ///
+    /// The save has to come first. The widget is another process reading the file, and the app's
+    /// context only autosaves some time later — a reload sent straight after an insert re-reads
+    /// the store before the row is in it, and nothing reloads again once autosave catches up, so
+    /// the widget kept showing the old figure until its midnight refresh.
+    static func saveAndReloadWidget(_ context: ModelContext) {
+        try? context.save()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     /// Fetches the budget for `month`. Goes to the store rather than a `@Query` snapshot, so a
     /// budget inserted earlier in the same update cycle is still found and not duplicated.
     static func budget(for month: MonthRange, in context: ModelContext) -> Budget? {
@@ -50,6 +62,19 @@ enum LedgerStore {
         var descriptor = FetchDescriptor<Budget>(predicate: #Predicate { $0.monthStart == start })
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
+    }
+
+    /// The budget that applies to `month`, following a repeating budget from an earlier month when
+    /// the month has none of its own. Same rule as `Budget.effective(for:among:)`.
+    static func effectiveBudget(for month: MonthRange, in context: ModelContext) -> Budget? {
+        let start = month.start
+        var descriptor = FetchDescriptor<Budget>(
+            predicate: #Predicate { $0.monthStart <= start },
+            sortBy: [SortDescriptor(\.monthStart, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        guard let latest = try? context.fetch(descriptor).first else { return nil }
+        return latest.monthStart == start || latest.repeatsMonthly ? latest : nil
     }
 }
 

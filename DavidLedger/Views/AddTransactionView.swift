@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import WidgetKit
 import LedgerCore
 
 struct AddTransactionView: View {
@@ -438,7 +437,7 @@ struct AddTransactionView: View {
 
         // The widget reads the same store but is a separate process; without this it keeps showing
         // the old figure until its next scheduled refresh.
-        WidgetCenter.shared.reloadAllTimelines()
+        LedgerStore.saveAndReloadWidget(context)
     }
 
     /// Checked here rather than on a timer, because a saved expense is the only thing that can
@@ -450,7 +449,7 @@ struct AddTransactionView: View {
     private func notifyIfBudgetThresholdCrossed(including extra: Transaction? = nil) {
         guard AppSettings.shared.budgetAlertEnabled else { return }
         let month = MonthRange(containing: occurredAt)
-        guard let budget = budgets.first(where: { $0.monthStart == month.start }),
+        guard let budget = Budget.effective(for: month.start, among: budgets),
               budget.totalTarget > 0 else { return }
 
         let rows = allTransactions + (extra.map { [$0] } ?? [])

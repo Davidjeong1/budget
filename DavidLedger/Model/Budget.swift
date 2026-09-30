@@ -11,11 +11,29 @@ final class Budget {
     var totalTarget: Int
     /// Category raw value → target amount. Categories absent from the map have no target.
     var categoryTargets: [String: Int]
+    /// When on, every later month without a budget of its own uses this one — set once, repeat
+    /// until changed. A later month that is edited gets its own row (see `effective(for:among:)`),
+    /// so the change applies from that month on and never reaches back into earlier ones.
+    ///
+    /// Defaulted so stores written before this property existed migrate without a step of their own.
+    var repeatsMonthly: Bool = false
 
-    init(monthStart: Date, totalTarget: Int, categoryTargets: [String: Int] = [:]) {
+    init(monthStart: Date, totalTarget: Int, categoryTargets: [String: Int] = [:], repeatsMonthly: Bool = false) {
         self.monthStart = monthStart
         self.totalTarget = totalTarget
         self.categoryTargets = categoryTargets
+        self.repeatsMonthly = repeatsMonthly
+    }
+
+    /// The budget that applies to the month starting at `monthStart`: that month's own row if it
+    /// has one, otherwise the nearest earlier row when that row repeats monthly. The nearest row
+    /// decides on its own — one that stopped repeating ends the chain even if an older one repeats.
+    static func effective(for monthStart: Date, among budgets: [Budget]) -> Budget? {
+        let latest = budgets
+            .filter { $0.monthStart <= monthStart }
+            .max { $0.monthStart < $1.monthStart }
+        guard let latest else { return nil }
+        return latest.monthStart == monthStart || latest.repeatsMonthly ? latest : nil
     }
 
     func target(forRaw raw: String) -> Int? {
